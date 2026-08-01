@@ -1,0 +1,42 @@
+---
+import type { RichText } from "@/lib/notion";
+import Annotations, { type Wrapper } from "@/components/Annotations.astro";
+
+interface Props {
+  richText: RichText;
+}
+
+const { richText } = Astro.props;
+
+// Outermost first: a link wraps the annotations, and bold ends up innermost —
+// matching the order the React renderer applied them.
+function wrappersFor(item: RichText[number]): Array<Wrapper> {
+  const wrappers: Array<Wrapper> = [];
+
+  if (item.type === "text" && item.text.link) {
+    wrappers.push({
+      tag: "a",
+      attrs: {
+        href: item.text.link.url,
+        target: "_blank",
+        rel: "noopener noreferrer",
+      },
+    });
+  }
+
+  if (item.annotations.code) wrappers.push({ tag: "code" });
+  if (item.annotations.strikethrough) wrappers.push({ tag: "s" });
+  if (item.annotations.italic) wrappers.push({ tag: "em" });
+  if (item.annotations.bold) wrappers.push({ tag: "strong" });
+
+  return wrappers;
+}
+---
+
+{
+  richText.map((item) => (
+    <span>
+      <Annotations wrappers={wrappersFor(item)}>{item.plain_text}</Annotations>
+    </span>
+  ))
+}

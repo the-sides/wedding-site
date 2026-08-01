@@ -1,0 +1,35 @@
+---
+import "@/styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+}
+
+const {
+  title = "Jacob & Vicki",
+  description = "Wedding details for Jacob and Vicki.",
+  image = "/PXL_20251227_010505912.jpg",
+} = Astro.props;
+
+const imageUrl = Astro.site ? new URL(image, Astro.site).href : image;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={imageUrl} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="generator" content={Astro.generator} />
+  </head>
+  <body class="dark">
+    <slot />
+  </body>
+</html>

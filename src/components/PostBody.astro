@@ -1,0 +1,76 @@
+---
+import type { Block } from "@/lib/notion";
+import BlockRenderer from "@/components/Block.astro";
+
+type GroupedBlock =
+  | Block
+  | { type: "ul"; items: Array<Block> }
+  | { type: "ol"; items: Array<Block> };
+
+interface Props {
+  blocks: Array<Block>;
+}
+
+const { blocks } = Astro.props;
+
+// Notion returns list items as a flat run of sibling blocks, so consecutive
+// items are collected back into a single <ul>/<ol>.
+function groupListItems(source: Array<Block>) {
+  const grouped: Array<GroupedBlock> = [];
+  let index = 0;
+
+  while (index < source.length) {
+    const block = source[index];
+
+    if (block.type === "bulleted_list_item") {
+      const items: Array<Block> = [];
+      while (
+        index < source.length &&
+        source[index].type === "bulleted_list_item"
+      ) {
+        items.push(source[index]);
+        index++;
+      }
+      grouped.push({ type: "ul", items });
+    } else if (block.type === "numbered_list_item") {
+      const items: Array<Block> = [];
+      while (
+        index < source.length &&
+        source[index].type === "numbered_list_item"
+      ) {
+        items.push(source[index]);
+        index++;
+      }
+      grouped.push({ type: "ol", items });
+    } else {
+      grouped.push(block);
+      index++;
+    }
+  }
+
+  return grouped;
+}
+
+const grouped = groupListItems(blocks);
+---
+
+<div
+  class="mt-5 space-y-4 font-['Avenir_Next','Gill_Sans',sans-serif] text-[0.95rem] leading-7 text-[#4f3d30] [&_a]:border-b [&_a]:border-[#b98535]/50 [&_a]:text-[#7a4d19] [&_code]:bg-[#e7d4bd] [&_code]:px-1 [&_h3]:font-['Bodoni_72','Didot','Baskerville',serif] [&_h3]:text-3xl [&_h3]:leading-none [&_h3]:text-[#221812] [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:tracking-[0.18em] [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:text-[#221812] [&_ul]:list-disc [&_ul]:pl-5"
+>
+  {
+    grouped.map((item) => {
+      if ("items" in item) {
+        const List = item.type === "ol" ? "ol" : "ul";
+        return (
+          <List>
+            {item.items.map((block) => (
+              <BlockRenderer block={block} />
+            ))}
+          </List>
+        );
+      }
+
+      return <BlockRenderer block={item} />;
+    })
+  }
+</div>

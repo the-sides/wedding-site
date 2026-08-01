@@ -1,0 +1,33 @@
+---
+/*
+ * Wraps slotted content in a nested chain of elements, outermost first.
+ * Astro templates can't build up nested elements imperatively the way the
+ * React version did (`content = <strong>{content}</strong>`), so this peels
+ * one wrapper per recursion instead. Going through real elements rather than
+ * `set:html` keeps Astro's escaping in play.
+ */
+export interface Wrapper {
+  tag: string;
+  attrs?: Record<string, string>;
+}
+
+interface Props {
+  wrappers: Array<Wrapper>;
+}
+
+const { wrappers } = Astro.props;
+const [outermost, ...rest] = wrappers;
+const Tag = outermost?.tag;
+---
+
+{
+  Tag ? (
+    <Tag {...(outermost?.attrs ?? {})}>
+      <Astro.self wrappers={rest}>
+        <slot />
+      </Astro.self>
+    </Tag>
+  ) : (
+    <slot />
+  )
+}

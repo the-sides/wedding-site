@@ -1,4 +1,9 @@
 import { Client } from "@notionhq/client";
+import {
+  NOTION_API_KEY,
+  NOTION_DATABASE_ID,
+  NOTION_DATA_SOURCE_ID,
+} from "astro:env/server";
 import type {
   BlockObjectResponse,
   DataSourceObjectResponse,
@@ -7,11 +12,11 @@ import type {
 } from "@notionhq/client/build/src/api-endpoints";
 
 const notion = new Client({
-  auth: process.env.NOTION_API_KEY,
+  auth: NOTION_API_KEY,
 });
 
-const DATABASE_ID = process.env.NOTION_DATABASE_ID;
-const DATA_SOURCE_ID = process.env.NOTION_DATA_SOURCE_ID;
+const DATABASE_ID = NOTION_DATABASE_ID;
+const DATA_SOURCE_ID = NOTION_DATA_SOURCE_ID;
 
 type RichText = Array<RichTextItemResponse>;
 
@@ -41,6 +46,9 @@ type Block =
 type PageProperties = PageObjectResponse["properties"];
 type PageProperty = PageProperties[string];
 type DataSourceProperties = DataSourceObjectResponse["properties"];
+
+type QueryArgs = Parameters<typeof notion.dataSources.query>[0];
+type PostSort = NonNullable<QueryArgs["sorts"]>[number];
 
 function extractRichText(block: BlockObjectResponse): RichText | null {
   switch (block.type) {
@@ -160,7 +168,9 @@ async function getPageBlocks(pageId: string): Promise<Array<Block>> {
       }
     }
 
-    cursor = response.has_more ? response.next_cursor ?? undefined : undefined;
+    cursor = response.has_more
+      ? (response.next_cursor ?? undefined)
+      : undefined;
   } while (cursor);
 
   return blocks;
@@ -244,7 +254,7 @@ function publicationFilter(properties: DataSourceProperties) {
   return undefined;
 }
 
-function sortForPosts(properties: DataSourceProperties) {
+function sortForPosts(properties: DataSourceProperties): Array<PostSort> {
   const dateProperty = findPropertyName(properties, "date", [
     "Date",
     "Published Date",
@@ -258,7 +268,7 @@ function sortForPosts(properties: DataSourceProperties) {
         property: dateProperty,
         direction: "descending",
       },
-    ] as const;
+    ];
   }
 
   return [
@@ -266,7 +276,7 @@ function sortForPosts(properties: DataSourceProperties) {
       timestamp: "last_edited_time",
       direction: "descending",
     },
-  ] as const;
+  ];
 }
 
 function postFromPage(
@@ -274,7 +284,10 @@ function postFromPage(
   properties: DataSourceProperties,
   blocks: Array<Block>,
 ): Post | null {
-  const titleProperty = findPropertyName(properties, "title", ["Name", "Title"]);
+  const titleProperty = findPropertyName(properties, "title", [
+    "Name",
+    "Title",
+  ]);
   const dateProperty = findPropertyName(properties, "date", [
     "Date",
     "Published Date",
@@ -302,7 +315,9 @@ function postFromPage(
     id: page.id,
     title,
     slug,
-    date: dateFromProperty(dateProperty ? page.properties[dateProperty] : undefined),
+    date: dateFromProperty(
+      dateProperty ? page.properties[dateProperty] : undefined,
+    ),
     excerpt:
       textFromProperty(
         excerptProperty ? page.properties[excerptProperty] : undefined,
@@ -324,7 +339,9 @@ export async function getPosts(): Promise<Array<Post>> {
   const posts: Array<Post> = [];
 
   for (const page of response.results) {
-    if (!("properties" in page)) continue;
+    // `result_type: "page"` should keep data sources out of the results, but
+    // the SDK types them as possible, and they also carry `properties`.
+    if (page.object !== "page" || !("properties" in page)) continue;
 
     const blocks = await getPageBlocks(page.id);
     const post = postFromPage(page, dataSource.properties, blocks);

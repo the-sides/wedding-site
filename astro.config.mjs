@@ -1,0 +1,48 @@
+// @ts-check
+import { defineConfig, envField } from "astro/config";
+
+import tailwindcss from "@tailwindcss/vite";
+import vercel from "@astrojs/vercel";
+
+// https://astro.build/config
+export default defineConfig({
+  // Pages are prerendered to static HTML at build time. The Notion webhook
+  // opts out with `export const prerender = false` and becomes a Vercel
+  // Function, which is what lets it trigger a redeploy on Notion edits.
+  output: "static",
+
+  adapter: vercel(),
+
+  // Secrets are read from the live process rather than inlined at build time,
+  // so the webhook picks up VERCEL_DEPLOY_HOOK at runtime. All are optional so
+  // an unconfigured environment degrades to an empty post list instead of
+  // failing the build.
+  env: {
+    schema: {
+      NOTION_API_KEY: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
+      NOTION_DATABASE_ID: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
+      NOTION_DATA_SOURCE_ID: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
+      VERCEL_DEPLOY_HOOK: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
+    },
+  },
+
+  vite: {
+    plugins: [tailwindcss()],
+  },
+});

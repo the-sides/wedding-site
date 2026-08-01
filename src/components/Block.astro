@@ -1,0 +1,70 @@
+---
+import type { Block } from "@/lib/notion";
+import RichText from "@/components/RichText.astro";
+
+interface Props {
+  block: Block;
+}
+
+const { block } = Astro.props;
+
+const caption =
+  block.type === "image"
+    ? block.caption
+        .map((item) => item.plain_text)
+        .join("")
+        .trim()
+    : "";
+---
+
+{
+  block.type === "paragraph" && (
+    <p>
+      <RichText richText={block.text} />
+    </p>
+  )
+}
+
+{
+  block.type === "heading_2" && (
+    <h3>
+      <RichText richText={block.text} />
+    </h3>
+  )
+}
+
+{
+  block.type === "heading_3" && (
+    <h4>
+      <RichText richText={block.text} />
+    </h4>
+  )
+}
+
+{
+  (block.type === "bulleted_list_item" ||
+    block.type === "numbered_list_item") && (
+    <li>
+      <RichText richText={block.text} />
+    </li>
+  )
+}
+
+{
+  block.type === "image" && (
+    <figure class="my-6 overflow-hidden border border-[#221812]/15 bg-[#f4eadc]/70">
+      <img
+        src={block.url}
+        alt={caption || "Wedding post image"}
+        loading="lazy"
+        decoding="async"
+        class="max-h-[34rem] w-full bg-[#e7d4bd] object-cover"
+      />
+      {block.caption.length > 0 && (
+        <figcaption class="border-t border-[#221812]/10 px-3 py-2 text-sm leading-6 text-[#6f5a45]">
+          <RichText richText={block.caption} />
+        </figcaption>
+      )}
+    </figure>
+  )
+}
