@@ -19,9 +19,5 @@
     "ui": "@/components/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
-  },
-  "registries": {
-    "@animbits": "https://animbits.dev/r/{name}.json",
-    "@react-bits": "https://reactbits.dev/r/{name}.json"
   }
 }

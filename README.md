@@ -1,3 +1,12 @@
-# TanStack Start + shadcn/ui
+# Jacob & Vicki's Wedding
 
-This is a template for a new TanStack Start project with React, TypeScript, and shadcn/ui.
+Wedding site for Jacob and Vicki, built with TanStack Start and backed by Notion for updates.
+
+## Development
+
+```sh
+bun install
+bun run dev
+```
+
+Copy `.env.example` to `.env` and configure the Notion integration variables to load wedding posts.

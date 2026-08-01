@@ -28,7 +28,7 @@ export function HomePage({ posts }: HomePageProps) {
         aria-label="Jacob and Vicki wedding hero"
       >
         <img
-          src="/haleywedding.webp"
+          src="/walking.jpg"
           alt="Jacob and Vicki under string lights"
           className="absolute inset-0 h-full w-full object-cover object-[62%_50%]"
         />

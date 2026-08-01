@@ -17,11 +17,22 @@ export const Route = createRootRoute({
         description: 'Wedding details for Jacob and Vicki.'
       },
       { property: 'og:image', content: '/PXL_20251227_010505912.jpg' },
+      { property: 'og:title', content: 'Jacob & Vicki' },
+      { property: 'og:description', content: 'Wedding details for Jacob and Vicki.' },
     ],
     links: [
       {
         rel: 'stylesheet',
         href: appCss,
+      },
+      {
+        rel: 'icon',
+        href: '/favicon.svg',
+        type: 'image/svg+xml',
+      },
+      {
+        rel: 'manifest',
+        href: '/manifest.json',
       },
     ],
   }),

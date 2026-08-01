@@ -2,7 +2,6 @@
   "permissions": {
     "allow": [
       "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Notion CMS integration for reviews\n\nFetch reviews from Notion database at build time instead of hardcoding.\nSupports paragraphs, headings, lists, and rich text formatting.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "WebFetch(domain:developers.notion.com)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:github.com)",
@@ -14,7 +13,6 @@
       "Bash(bun run build:*)",
       "WebFetch(domain:bun.com)",
       "Bash(git commit:*)",
-      "WebFetch(domain:reactbits.dev)",
       "Bash(bun x:*)"
     ]
   },
