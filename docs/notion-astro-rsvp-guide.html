@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notion + Astro 7: RSVP integration guide (jv-wedding)</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --fg: #1c1a17;
+    --muted: #6b645c;
+    --rule: #e3ded6;
+    --accent: #8a5a2b;
+    --accent-soft: #f3ece2;
+    --code-bg: #f5f2ed;
+    --code-fg: #2b2721;
+    --warn-bg: #fdf3e7;
+    --warn-br: #e0b478;
+    --stop-bg: #fbecea;
+    --stop-br: #d08b80;
+    --you-bg: #eef1f7;
+    --you-br: #8fa2c8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16151a;
+      --fg: #e8e4dd;
+      --muted: #9a938a;
+      --rule: #2e2c33;
+      --accent: #d9a76a;
+      --accent-soft: #2a2520;
+      --code-bg: #1e1d23;
+      --code-fg: #ddd8d0;
+      --warn-bg: #2a2118;
+      --warn-br: #7a5a2e;
+      --stop-bg: #2a1a18;
+      --stop-br: #7d453c;
+      --you-bg: #1a1e28;
+      --you-br: #3f4d6e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 3rem 1.25rem 8rem; }
+  header.masthead { border-bottom: 2px solid var(--fg); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+  h1 { font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.15; margin: 0 0 .5rem; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); margin: 0; font-size: 1rem; }
+  h2 {
+    font-size: 1.35rem; margin: 3.5rem 0 1rem; padding-top: 1.25rem;
+    border-top: 1px solid var(--rule); letter-spacing: -0.01em;
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; margin-right: .5rem; }
+  h3 { font-size: 1.05rem; margin: 2rem 0 .5rem; }
+  h4 { font-size: .95rem; margin: 1.5rem 0 .4rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+  p, li { max-width: 72ch; }
+  code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: .875em; }
+  p code, li code, td code, h3 code {
+    background: var(--code-bg); padding: .12em .38em; border-radius: 4px; color: var(--code-fg);
+  }
+  pre {
+    background: var(--code-bg); color: var(--code-fg);
+    padding: 1rem 1.1rem; border-radius: 8px; overflow-x: auto;
+    border: 1px solid var(--rule); line-height: 1.55; font-size: .84rem;
+  }
+  pre code { font-size: inherit; }
+  .filename {
+    font: 600 .75rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted); letter-spacing: .03em;
+    background: var(--accent-soft); border: 1px solid var(--rule); border-bottom: none;
+    padding: .5rem .75rem; border-radius: 8px 8px 0 0; display: inline-block; margin-bottom: 0;
+  }
+  .filename + pre { border-radius: 0 8px 8px 8px; margin-top: 0; }
+  .note, .warn, .you, .stop {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    padding: .85rem 1rem; margin: 1.25rem 0; border-radius: 0 6px 6px 0; font-size: .94rem;
+  }
+  .warn { border-left-color: var(--warn-br); background: var(--warn-bg); }
+  .stop { border-left-color: var(--stop-br); background: var(--stop-bg); }
+  .you { border-left-color: var(--you-br); background: var(--you-bg); }
+  .note strong:first-child, .warn strong:first-child, .you strong:first-child, .stop strong:first-child { display: block; margin-bottom: .25rem; }
+  .note p:last-child, .warn p:last-child, .you p:last-child, .stop p:last-child { margin-bottom: 0; }
+  .note p:first-child, .warn p:first-child, .you p:first-child, .stop p:first-child { margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; margin: 1.25rem 0; }
+  th, td { text-align: left; padding: .55rem .65rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  nav.toc { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 8px; padding: 1rem 1.25rem; margin: 2rem 0 1rem; }
+  nav.toc h4 { margin-top: 0; }
+  nav.toc ol { margin: 0; padding-left: 1.3rem; }
+  nav.toc li { margin: .2rem 0; }
+  a { color: var(--accent); }
+  ul.check { list-style: none; padding-left: 0; }
+  ul.check li { padding-left: 1.7rem; position: relative; margin: .45rem 0; }
+  ul.check li::before {
+    content: "☐"; position: absolute; left: 0; top: 0; color: var(--accent); font-size: 1.05em;
+  }
+  hr { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+  .kicker { font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); font-weight: 700; margin-bottom: .4rem; }
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .85rem; }
+  .win { color: #2f7d32; font-weight: 600; }
+  .lose { color: #a8433a; font-weight: 600; }
+  @media (prefers-color-scheme: dark) {
+    .win { color: #7cc07f; }
+    .lose { color: #e08b80; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <div class="kicker">jv-wedding · implementation guide</div>
+  <h1>Storing RSVPs in Notion</h1>
+  <p class="sub">Using the database you already have wired up, so responses land somewhere you and Vicki can actually read them. Astro&nbsp;7, static site, form action posts on submit.</p>
+</header>
+
+<div class="you">
+  <strong>How to read this</strong>
+  <p>The <em>infrastructure</em> code here is complete and copy-pasteable — client setup, env wiring, the property-value mapping, the request/response plumbing. The <em>RSVP-specific</em> code (fields, validation rules, Notion columns, UI) is deliberately left as skeletons marked <code>/* YOU WRITE THIS */</code>. Blue boxes flag decisions that are yours to make.</p>
+  <p>This is the Notion counterpart to <code>docs/neon-astro-rsvp-guide.html</code>. If you haven't picked a backend yet, skip to <a href="#versus">§12</a> first — it's the honest comparison.</p>
+</div>
+
+<nav class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#why">Why this is a good idea here, and where it hurts</a></li>
+    <li><a href="#arch">The shape of the feature (+ what Astro 7 changes)</a></li>
+    <li><a href="#setup">Setting up the RSVP database in Notion</a></li>
+    <li><a href="#webhook">⚠ The deploy-hook trap</a></li>
+    <li><a href="#env">Environment variables</a></li>
+    <li><a href="#client">The client module</a></li>
+    <li><a href="#props">Writing property values — the mapping table</a></li>
+    <li><a href="#write">The write path — the Astro Action</a></li>
+    <li><a href="#dupes">Duplicates, and the upsert you can't have</a></li>
+    <li><a href="#limits">Rate limits &amp; the RSVP thundering herd</a></li>
+    <li><a href="#schema-api">Changing the schema from code (the endpoint you linked)</a></li>
+    <li><a href="#versus">Notion vs Neon — the honest comparison</a></li>
+    <li><a href="#deploy">Deploy checklist</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
+    <li><a href="#yourlist">Your implementation checklist</a></li>
+  </ol>
+</nav>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="why"><span class="num">01</span>Why this is a good idea here, and where it hurts</h2>
+
+<p>For a wedding RSVP list specifically, Notion is a better fit than it has any right to be. Three reasons, and they're not small:</p>
+
+<ul>
+  <li><span class="win">You don't build an admin UI.</span> With Postgres, "let me see who's responded" means writing a gated admin page, a table, a headcount, and a CSV export. With Notion, that's the database view you're already looking at. Filters, sorts, grouping by meal choice, a board view of who hasn't replied — all free, all instantly.</li>
+  <li><span class="win">Vicki can use it without you.</span> She can add a note to a guest's row, correct a spelling, mark someone as called. A Postgres table needs you in the loop for every edit.</li>
+  <li><span class="win">Zero new infrastructure.</span> <code>@notionhq/client</code> is already a dependency, <code>NOTION_API_KEY</code> is already in the environment, and <code>src/lib/notion.ts</code> already has working data-source resolution. You're adding one env var and one module.</li>
+</ul>
+
+<p>The costs are real, though, and they're all consequences of one fact: <strong>Notion is a document store with a REST API, not a database.</strong></p>
+
+<ul>
+  <li><span class="lose">~3 requests per second.</span> That's the connection rate limit. It's the single most important number in this guide — see <a href="#limits">§10</a>.</li>
+  <li><span class="lose">No unique constraints, no upsert, no transactions.</span> Deduplicating a double submission means query-then-write, which is racy by construction. <a href="#dupes">§9</a>.</li>
+  <li><span class="lose">Renaming a column in the UI breaks your writes.</span> Property names are the API contract, and Notion lets anyone with edit access change them by double-clicking. There is no migration, no type checking, no warning.</li>
+  <li><span class="lose">Reads are slow and paginated.</span> 100 rows per request. Fine at wedding scale, painful if you ever wanted live counts on a busy page.</li>
+</ul>
+
+<div class="note">
+  <strong>The verdict for this project</strong>
+  <p>Notion wins, and it isn't close — <em>as long as you keep the invite list modest and don't put a live RSVP counter on the homepage</em>. The admin UI you don't have to build is worth more than the constraints you give up, and the failure modes below are all manageable if you know about them in advance. That's what the rest of this document is for.</p>
+</div>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="arch"><span class="num">02</span>The shape of the feature (+ what Astro 7 changes)</h2>
+
+<p>Identical to the Neon plan — the backend swap doesn't change the Astro architecture at all:</p>
+
+<div class="note">
+  <strong>The plan</strong>
+  <p>Stay static. Keep <code>output: 'static'</code>, and mark <em>only</em> the RSVP route <code>prerender = false</code>. The form is a real <code>&lt;form&gt;</code> wired to an Astro Action that runs on submit. A client island can be layered on later for extra interactivity, but the form works without it.</p>
+  <p style="margin-bottom:0">Notably, with Notion you likely <strong>don't need an admin route at all</strong>, which removes a whole page, its auth gate, and its <code>robots.txt</code> entry from the Neon plan.</p>
+</div>
+
+<p>Astro 7 keeps the static-by-default model: <code>output: 'static'</code> is the default, <code>prerender = false</code> opts individual routes out, and an adapter is required for any route that runs on a server.</p>
+
+<div class="filename">astro.config.mjs</div>
+<pre><code>import { defineConfig } from 'astro/config';
+import vercel from '@astrojs/vercel';
+
+export default defineConfig({
+  // 'static' is the default — every page is prerendered unless it opts out
+  adapter: vercel(),
+});</code></pre>
+
+<p>Install with <code>bunx astro add vercel</code> so the adapter version matches Astro 7 / Vite 8.</p>
+
+<h3>Where the pieces will live</h3>
+<pre><code>src/
+├── lib/
+│   ├── notion.ts          ← existing: posts client + data-source resolution
+│   └── rsvp.ts            ← NEW: RSVP reads/writes (reuses the client)
+├── actions/
+│   └── index.ts           ← NEW: the RSVP action (validation + write)
+└── pages/
+    └── rsvp.astro         ← NEW: the form page (prerender = false)</code></pre>
+
+<h3>The v7 changes that touch this work</h3>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Change</th><th>Why it matters here</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Rust compiler is now the default</td>
+      <td>Unclosed tags are errors and invalid HTML is no longer auto-corrected. A form is the most markup-dense thing you'll write. Expect to meet this. <a href="#write">§8</a></td>
+    </tr>
+    <tr>
+      <td><code>src/fetch.ts</code> advanced routing (stable)</td>
+      <td>Full control of the request pipeline. Less relevant here than in the Neon plan, since there's no admin page to gate — but it's where you'd put rate limiting if spam becomes a problem.</td>
+    </tr>
+    <tr>
+      <td><code>compressHTML</code> defaults to <code>'jsx'</code></td>
+      <td>Whitespace between inline elements strips by JSX rules. Occasionally visible in label/input spacing.</td>
+    </tr>
+    <tr>
+      <td><code>@astrojs/db</code> removed</td>
+      <td>Irrelevant to you now, but it's why "add a database to Astro" tutorials are mostly stale.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>Also: previously-experimental flags for the logger, queued rendering, the Rust compiler, advanced routing and caching are stable in v7 — delete them from <code>astro.config.mjs</code> if the port added any.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="setup"><span class="num">03</span>Setting up the RSVP database in Notion</h2>
+
+<p>Build the schema <strong>in the Notion UI</strong>, not through the API. It takes two minutes, you can see what you're doing, and the API path for schema changes has sharp edges (<a href="#schema-api">§11</a>).</p>
+
+<h3>Step 1 — create the database</h3>
+
+<p>Make a new database in your workspace. Give it a name you'll recognise in a URL bar. Keep it <strong>separate from the wedding-posts database</strong> — different content, different access needs, and see <a href="#webhook">§4</a> for a sharper reason.</p>
+
+<h3>Step 2 — design the columns</h3>
+
+<div class="you">
+  <strong>This is the consequential decision</strong>
+  <p>Notion property types are your schema. Changing them later is a UI click that can silently destroy data, so think it through once. Below is a sketch to react to, not a spec to copy.</p>
+</div>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Column</th><th>Notion type</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Name</strong></td><td><code>Title</code></td><td>Mandatory — every Notion database has exactly one title property, and every page must have one. Use the guest's name so rows are readable at a glance.</td></tr>
+    <tr><td>Attending</td><td><code>Select</code> or <code>Checkbox</code></td><td>Prefer <code>Select</code> with Yes / No options over a checkbox. A checkbox can't distinguish "said no" from "hasn't answered".</td></tr>
+    <tr><td>Email</td><td><code>Email</code></td><td>Notion validates the format and makes it clickable.</td></tr>
+    <tr><td>Party size</td><td><code>Number</code></td><td></td></tr>
+    <tr><td>Meal</td><td><code>Select</code></td><td>Options must exist or be creatable — see the warning below.</td></tr>
+    <tr><td>Dietary notes</td><td><code>Rich text</code></td><td>2000 character cap. Fine, but validate shorter in your Zod schema.</td></tr>
+    <tr><td>Events attending</td><td><code>Multi-select</code></td><td>Welcome dinner / ceremony / brunch.</td></tr>
+    <tr><td>Submitted</td><td><code>Created time</code></td><td><strong>Use Notion's built-in <code>Created time</code>, not a date property you set yourself.</strong> It's automatic, always correct, and one less thing to write.</td></tr>
+    <tr><td>Message</td><td><code>Rich text</code></td><td>Optional note to you two.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="warn">
+  <strong>Property names are your API contract</strong>
+  <p>The keys in your <code>properties</code> payload must match the data source's property names <em>exactly</em> — including capitalisation and spaces. If anyone renames "Attending" to "Coming?" in the Notion UI, every RSVP write starts failing with a validation error, and nothing in your codebase will have warned you.</p>
+  <p style="margin-bottom:0">Two mitigations, in order of preference: (a) decide the names now and don't touch them, or (b) reuse the <code>findPropertyName()</code> helper that already exists in <code>src/lib/notion.ts</code> — it looks a property up by type with a list of preferred names and falls back to the first property of the right type. That's exactly the resilience this problem needs, and you already wrote it.</p>
+</div>
+
+<h3>Step 3 — share the database with your integration</h3>
+
+<div class="stop">
+  <strong>This is the step everyone forgets</strong>
+  <p>Creating an integration is not the same as giving it access. Open the RSVP database → <strong>⋯ menu → Connections →</strong> add your integration. Without it, every API call returns <code>404 object_not_found</code> — <em>not</em> a permission error, which makes it maddening to debug. If your very first request 404s on an ID you copied correctly, this is why, essentially every time.</p>
+  <p style="margin-bottom:0">Your integration also needs <strong>insert content</strong> capability, since it's creating pages rather than just reading them. Check that in the integration's settings at <a href="https://www.notion.so/my-integrations">notion.so/my-integrations</a>.</p>
+</div>
+
+<h3>Step 4 — get the data source ID</h3>
+
+<p>Since API version 2025-09-03, a Notion <em>database</em> is a container that holds one or more <em>data sources</em>, and you write pages to a data source, not to the database. Your <code>.env.example</code> already documents this distinction for the posts database — same idea here.</p>
+
+<p>The reliable way to get it is the pattern already in your codebase:</p>
+
+<pre><code>const database = await notion.databases.retrieve({ database_id: DATABASE_ID });
+if ('data_sources' in database &amp;&amp; database.data_sources.length &gt; 0) {
+  return database.data_sources[0].id;
+}</code></pre>
+
+<p>Run that once, note the ID, and put it in <code>.env</code> so you're not paying an extra API call on every submission.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="webhook"><span class="num">04</span>⚠ The deploy-hook trap</h2>
+
+<div class="stop">
+  <strong>Read this before you create the database</strong>
+  <p>This repo has <code>src/routes/api/notion-webhook.ts</code>, which receives Notion webhook events and <strong>triggers a full Vercel rebuild of the site</strong>. That's the right behaviour for wedding posts: you edit a post, the site rebuilds, the change goes live.</p>
+  <p>Now consider what happens if that webhook subscription covers your new RSVP database. Every single RSVP submission writes a page to Notion → Notion fires a webhook → your endpoint pings the deploy hook → <strong>the entire site rebuilds.</strong> Send out fifty invitations and you have fifty rebuilds queued, most of them redundant, some of them concurrent, all of them burning Vercel build minutes for no reason.</p>
+  <p style="margin-bottom:0">Worse, it's silent. RSVPs still save correctly. You'd only notice from the deployment list or the build-minutes bill.</p>
+</div>
+
+<h3>What to do about it</h3>
+
+<p>Pick one, in order of robustness:</p>
+
+<ol>
+  <li><strong>Scope the webhook subscription to the posts database only.</strong> In the Notion integration's webhook settings, subscribe to the posts database specifically rather than workspace-wide events. Cleanest fix — the problem never occurs.</li>
+  <li><strong>Filter in the handler.</strong> The webhook payload identifies the source. Add an early return in <code>notion-webhook.ts</code> when the event's parent isn't the posts data source. This is worth doing <em>regardless</em>, as a belt-and-braces guard:
+    <pre><code>/* YOU WRITE THIS: near the top of the POST handler, before the
+   deploy-hook fetch. Check the event's parent/data source against
+   NOTION_DATA_SOURCE_ID and return early if it doesn't match. */</code></pre>
+  </li>
+  <li><strong>Put the RSVP database in a different workspace.</strong> Heaviest option, only worth it if the other two are somehow impractical.</li>
+</ol>
+
+<p>Do at least the second one. It's five lines and it makes the failure impossible rather than merely unlikely.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="env"><span class="num">05</span>Environment variables</h2>
+
+<p>You're reusing <code>NOTION_API_KEY</code>. The only genuinely new variable is the RSVP data source ID:</p>
+
+<div class="filename">.env.example</div>
+<pre><code># RSVP database
+# Data Source ID for the RSVP database (NOT the posts one).
+# In API v2025-09-03+, databases contain data sources and pages are
+# created against a data source. Resolve it once via
+# databases.retrieve() and paste the value here.
+NOTION_RSVP_DATA_SOURCE_ID=xxx</code></pre>
+
+<h3>Prefer <code>astro:env</code> over <code>import.meta.env</code></h3>
+
+<p>The existing <code>src/lib/notion.ts</code> reads <code>process.env.NOTION_API_KEY</code> directly, which works. But this repo leans heavily on React islands (shadcn, Radix, Base UI), and an integration token in a client bundle would be a genuinely bad day — it grants write access to your workspace, not just the RSVP database.</p>
+
+<p>Astro's typed env schema makes that mistake a build error instead of a leak. Secrets declared this way are excluded from the client bundle entirely and are only reachable through <code>astro:env/server</code>:</p>
+
+<div class="filename">astro.config.mjs</div>
+<pre><code>import { defineConfig, envField } from 'astro/config';
+import vercel from '@astrojs/vercel';
+
+export default defineConfig({
+  adapter: vercel(),
+  env: {
+    schema: {
+      NOTION_API_KEY: envField.string({ context: 'server', access: 'secret' }),
+      NOTION_RSVP_DATA_SOURCE_ID: envField.string({ context: 'server', access: 'secret' }),
+    },
+  },
+});</code></pre>
+
+<pre><code>import { NOTION_API_KEY } from 'astro:env/server';</code></pre>
+
+<div class="warn">
+  <strong>Build-time validation gotcha</strong>
+  <p>Astro validates every declared secret whenever anything imports from <code>astro:env/server</code> — even variables that file doesn't use. A build environment missing one of them fails the build. Make sure both are set everywhere you build, or mark them <code>optional: true</code> and handle undefined.</p>
+</div>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="client"><span class="num">06</span>The client module</h2>
+
+<p>No new dependency. <code>@notionhq/client</code> is already installed, and the existing module already constructs a client at module scope — the right place, since Vercel's Fluid Compute reuses function instances across requests.</p>
+
+<div class="filename">src/lib/rsvp.ts</div>
+<pre><code>import { Client } from '@notionhq/client';
+import { NOTION_API_KEY, NOTION_RSVP_DATA_SOURCE_ID } from 'astro:env/server';
+
+const notion = new Client({ auth: NOTION_API_KEY });
+
+export interface RsvpInput {
+  name: string;
+  attending: boolean;
+  /* YOU WRITE THIS: the rest of your fields */
+}
+
+export async function createRsvp(input: RsvpInput) {
+  return notion.pages.create({
+    parent: { type: 'data_source_id', data_source_id: NOTION_RSVP_DATA_SOURCE_ID },
+    properties: {
+      /* YOU WRITE THIS — see §7 for the shape of each property type */
+      Name: { title: [{ text: { content: input.name } }] },
+      Attending: { select: { name: input.attending ? 'Yes' : 'No' } },
+    },
+  });
+}</code></pre>
+
+<div class="you">
+  <strong>Your call: one client or two</strong>
+  <p>You could import the existing client from <code>src/lib/notion.ts</code> instead of constructing a second one. Two clients with the same token is harmless — they're thin HTTP wrappers, not connection pools. Separate modules keep the RSVP write path independent of the posts read path, which I'd mildly prefer, but either is fine.</p>
+</div>
+
+<h3>A note on API versioning</h3>
+
+<p>The SDK pins a Notion API version, and the version determines the shape of everything above — the data source model arrived in <code>2025-09-03</code>, and Notion's current docs are already showing <code>2026-03-11</code>. Your <code>package.json</code> has <code>@notionhq/client ^5.8.0</code>, and that caret means a <code>bun update</code> can move you to a newer minor with a newer default API version.</p>
+
+<p>Nothing here is likely to break soon, but if RSVP writes start failing after a dependency bump with no code change, this is the first thing to check.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="props"><span class="num">07</span>Writing property values — the mapping table</h2>
+
+<p>This is the part that's fiddly the first time. Every property type has its own JSON shape, and the errors you get for a wrong shape are not especially helpful. Here is every type you're likely to need:</p>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Notion type</th><th>JSON to send</th></tr></thead>
+  <tbody>
+    <tr><td><code>Title</code></td><td><code>{ title: [{ text: { content: "Jane Smith" } }] }</code></td></tr>
+    <tr><td><code>Rich text</code></td><td><code>{ rich_text: [{ text: { content: "No shellfish" } }] }</code></td></tr>
+    <tr><td><code>Number</code></td><td><code>{ number: 2 }</code></td></tr>
+    <tr><td><code>Select</code></td><td><code>{ select: { name: "Yes" } }</code></td></tr>
+    <tr><td><code>Multi-select</code></td><td><code>{ multi_select: [{ name: "Ceremony" }, { name: "Brunch" }] }</code></td></tr>
+    <tr><td><code>Checkbox</code></td><td><code>{ checkbox: true }</code></td></tr>
+    <tr><td><code>Email</code></td><td><code>{ email: "jane@example.com" }</code></td></tr>
+    <tr><td><code>Phone</code></td><td><code>{ phone_number: "415-202-4776" }</code></td></tr>
+    <tr><td><code>Date</code></td><td><code>{ date: { start: "2026-09-12" } }</code></td></tr>
+    <tr><td><code>Status</code></td><td><code>{ status: { name: "Responded" } }</code></td></tr>
+    <tr><td><code>Created time</code></td><td><em>Nothing — Notion sets it. Don't include it in the payload.</em></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Three things that catch people:</p>
+
+<ul>
+  <li><strong>Title and rich text are arrays of rich-text objects, not strings.</strong> This is the single most common mistake. <code>{ title: "Jane" }</code> is a validation error; the nesting is <code>title → array → text → content</code>. It exists because Notion text carries formatting, links and mentions — you're just not using any of that.</li>
+  <li><strong>Select options must exist, or be creatable.</strong> Sending <code>{ select: { name: "Vegan" } }</code> when "Vegan" isn't an option on that property will either create the option or error, depending on the property's configuration. Don't let free-text user input flow into a select — map it to a known set of values in your action, and use <code>Rich text</code> for anything genuinely open-ended.</li>
+  <li><strong>Omit rather than null for empty optional fields.</strong> If a guest leaves dietary notes blank, leave the key out of the payload entirely. Astro Actions hand you <code>null</code> for empty form fields, so build the properties object conditionally.</li>
+</ul>
+
+<h4>Size limits worth knowing</h4>
+<ul>
+  <li>Rich text content: <strong>2000 characters</strong> per value</li>
+  <li>Email: <strong>200 characters</strong>. Phone: <strong>200 characters</strong>. URLs: <strong>2000</strong></li>
+  <li>Multi-select: <strong>100 options</strong> per request</li>
+  <li>Overall payload: <strong>500 KB</strong></li>
+</ul>
+<p>None of these bind at wedding scale, but cap your free-text fields in the Zod schema anyway — it turns a Notion API error into a friendly validation message.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="write"><span class="num">08</span>The write path — the Astro Action</h2>
+
+<p>Same structure as the Neon plan: an Action with <code>accept: 'form'</code>, so the form submits without JavaScript and an island is pure enhancement later.</p>
+
+<div class="filename">src/actions/index.ts</div>
+<pre><code>import { defineAction, ActionError } from 'astro:actions';
+import { z } from 'astro/zod';
+import { createRsvp } from '../lib/rsvp';
+
+export const server = {
+  rsvp: defineAction({
+    accept: 'form',
+    input: z.object({
+      /* YOU WRITE THIS — the schema *is* your validation.
+         Form-specific Zod behaviour:
+           - text inputs    → z.string()
+           - checkboxes     → z.coerce.boolean()
+           - number inputs  → z.number()
+           - repeated names → z.array(...)
+           - empty values arrive as null (except arrays/booleans)
+
+         Cap free text so Notion's 2000-char limit can't be hit:
+           dietary: z.string().max(500).nullable(), */
+      name: z.string().min(1, 'Please tell us your name'),
+      attending: z.coerce.boolean(),
+    }),
+    handler: async (input) =&gt; {
+      try {
+        const page = await createRsvp(input);
+        return { id: page.id };
+      } catch (error) {
+        console.error('RSVP write to Notion failed:', error);
+        throw new ActionError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Something went wrong saving your RSVP. Please try again.',
+        });
+      }
+    },
+  }),
+};</code></pre>
+
+<p>The log-real-error / return-safe-message split matches how <code>notion-webhook.ts</code> already handles failures. Keep it — a raw Notion validation error mentioning your property names is not something to show a guest.</p>
+
+<div class="filename">src/pages/rsvp.astro</div>
+<pre><code>---
+import { actions } from 'astro:actions';
+
+export const prerender = false;  // REQUIRED: form actions need on-demand rendering
+
+const result = Astro.getActionResult(actions.rsvp);
+
+// Post/Redirect/Get — stops a refresh from resubmitting
+if (result &amp;&amp; !result.error) {
+  return Astro.redirect('/rsvp/thanks');
+}
+---
+
+&lt;form method="POST" action={actions.rsvp}&gt;
+  {/* YOU WRITE THIS — your fields.
+
+      `result.error.fields` maps field name → error messages,
+      which is what you'd use to render inline errors. */}
+&lt;/form&gt;</code></pre>
+
+<div class="warn">
+  <strong><code>export const prerender = false</code> is not optional</strong>
+  <p>A prerendered page has no server to POST to. Omit this and the submission 404s or silently does nothing — and since the page still <em>renders</em> fine, it's an easy hour to lose.</p>
+</div>
+
+<div class="warn">
+  <strong>Astro 7's Rust compiler will not forgive sloppy form markup</strong>
+  <p>Unclosed tags are now errors, and semantically invalid HTML is no longer auto-corrected. The usual offenders in a form: an unclosed <code>&lt;label&gt;</code> or <code>&lt;option&gt;</code>, a <code>&lt;div&gt;</code> inside a <code>&lt;p&gt;</code>, a stray <code>&lt;/div&gt;</code> after refactoring a fieldset, a nested <code>&lt;form&gt;</code>. These fail the build rather than rendering something almost-right. Read the compiler error before assuming your Action is broken.</p>
+</div>
+
+<h4>Later: adding a client island</h4>
+
+<p>The action is already callable from client code — <code>const { data, error } = await actions.rsvp({ ... })</code>. Keep the real <code>&lt;form method="POST" action={actions.rsvp}&gt;</code> as the markup and have the island attach an <code>onSubmit</code> that calls the action and prevents the default. Then the no-JS path still works and the island is genuinely additive. A React form that only submits via <code>onSubmit</code> quietly throws away the fallback.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="dupes"><span class="num">09</span>Duplicates, and the upsert you can't have</h2>
+
+<p>Guests will submit twice — double-click, back button, "wait, I need to add my husband". In Postgres you'd write <code>ON CONFLICT ... DO UPDATE</code> and the database would guarantee correctness. <strong>Notion has no equivalent.</strong> No unique constraints, no atomic upsert, no transactions.</p>
+
+<p>What you have instead is query-then-decide:</p>
+
+<pre><code>export async function findRsvpByName(name: string) {
+  const response = await notion.dataSources.query({
+    data_source_id: NOTION_RSVP_DATA_SOURCE_ID,
+    filter: { property: 'Name', title: { equals: name } },
+    page_size: 1,
+  });
+  return response.results[0] ?? null;
+}
+
+// then, in the action:
+const existing = await findRsvpByName(input.name);
+if (existing) {
+  await notion.pages.update({ page_id: existing.id, properties: { /* ... */ } });
+} else {
+  await createRsvp(input);
+}</code></pre>
+
+<p>Understand what this costs you:</p>
+
+<ul>
+  <li><strong>It's racy.</strong> Two submissions arriving milliseconds apart can both see "no existing row" and both create one. There is no lock to take. You cannot fix this properly.</li>
+  <li><strong>It doubles your API calls</strong> — a query plus a write for every submission, against a ~3/sec budget.</li>
+</ul>
+
+<div class="you">
+  <strong>Your call — and I'd argue for the lazy option</strong>
+  <p><strong>Just let duplicates happen.</strong> Always create, never query. Then sort the Notion view by name and eyeball it, or use Notion's own duplicate-detection when you're finalising the list. You are going to read every row by hand before sending numbers to a caterer anyway.</p>
+  <p style="margin-bottom:0">This is a case where the Postgres instinct (enforce correctness at write time) is the wrong instinct for the medium. A human reviews this data before it matters. Spending API budget and race-condition risk to prevent a duplicate row that you'd spot in two seconds is a bad trade. Do the query-then-update dance only if you specifically want guests to be able to <em>edit</em> their response by resubmitting — which is a real feature, just be clear that's why you're paying for it.</p>
+</div>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="limits"><span class="num">10</span>Rate limits &amp; the RSVP thundering herd</h2>
+
+<p>The number to internalise: <strong>an average of three requests per second per connection</strong>, with some burst allowance above that. There's also a workspace-wide limit shared across all connections, scaled to your plan.</p>
+
+<p>Exceeding it returns <strong>HTTP 429</strong> with a <code>rate_limited</code> error code and a <strong><code>Retry-After</code></strong> header giving the seconds to wait. A <strong>529</strong> means Notion is overloaded and should be handled the same way.</p>
+
+<h3>Why this matters more than it looks</h3>
+
+<p>RSVP traffic is not smooth. It is the definition of bursty: you send fifty invitations on a Sunday evening, and a meaningful fraction of your guests open the link within the same hour — several within the same <em>minute</em>. Add a query-before-write dedup and each guest costs two requests.</p>
+
+<p>You will probably be fine. Three per second is more than it sounds and this is a wedding, not a product launch. But "probably fine" plus "fails silently from the guest's perspective" is worth five lines of defence.</p>
+
+<h3>Handle 429 explicitly</h3>
+
+<pre><code>import { APIResponseError } from '@notionhq/client';
+
+/* YOU WRITE THIS — the shape:
+   catch APIResponseError with status 429 or 529, read the
+   Retry-After header, wait, and retry once. If it fails again,
+   throw an ActionError with a message that tells the guest their
+   RSVP did NOT save and to try again in a minute.
+
+   The critical part is the guest-facing message. A silent failure
+   here means someone believes they've RSVP'd and hasn't. That is
+   the worst outcome this feature has. */</code></pre>
+
+<div class="note">
+  <strong>The design principle</strong>
+  <p>Every failure mode in this feature should end with the guest knowing whether they're on the list. Ambiguity is worse than an error message — someone who sees "that didn't work, please try again" will try again, and someone who sees nothing will assume it worked.</p>
+</div>
+
+<h3>Don't put a live counter on the site</h3>
+
+<p>It's tempting to show "132 guests attending" on the homepage. Resist it, or compute it at build time. A live count means a Notion query on every page view, which is both slow and a fast route to the rate limit. If you want it, the site already rebuilds on a webhook — fetch the count at build time and let it be a few hours stale.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="schema-api"><span class="num">11</span>Changing the schema from code (the endpoint you linked)</h2>
+
+<p><code>PATCH /v1/data_sources/{data_source_id}</code> updates a data source's <strong>schema and metadata</strong> — its title, icon, properties, parent database, and trash status. In SDK terms, <code>notion.dataSources.update()</code>.</p>
+
+<pre><code>{
+  "title": [{ "text": { "content": "Wedding RSVPs" } }],
+  "icon": { "type": "emoji", "emoji": "💌" },
+  "properties": { /* property configurations */ }
+}</code></pre>
+
+<p>Within <code>properties</code>: add a property by including a new key with its type config, rename one by updating its <code>name</code> field, and <strong>delete one by setting it to <code>null</code></strong>.</p>
+
+<div class="stop">
+  <strong>My recommendation: don't call this at runtime</strong>
+  <p>Not because it doesn't work, but because there's no upside for you. Your schema changes maybe three times, always while you're sitting there designing the form, and the Notion UI does the same job with visual feedback and an undo button. Runtime schema mutation buys you nothing and adds a class of failure — a deploy that silently reshapes your live RSVP database — that you really don't want on a wedding site.</p>
+  <p style="margin-bottom:0">It's genuinely useful for a tool that provisions databases for other people. That isn't this.</p>
+</div>
+
+<h4>If you do use it, the sharp edges</h4>
+
+<ul>
+  <li><strong>Some properties can't be updated via API at all</strong> — formula properties, synced content, and place properties are rejected.</li>
+  <li><strong>Type conversions can destroy data.</strong> The docs call out people → file as a conversion that loses data. There's no dry-run and no undo.</li>
+  <li><strong>Schema must stay under 50 KB.</strong> Oversized updates fail with a <code>validation_error</code> naming the largest property. Not a concern at your scale, but it's a real ceiling on select-option counts.</li>
+  <li><strong>Relation properties require the related database to be shared with your connection too</strong> — the same Connections step from §3, applied to the other database.</li>
+  <li><strong>Moving a data source to a different database converts existing views to linked views.</strong> Surprising if you weren't expecting it.</li>
+</ul>
+
+<p>The one legitimately good use here: a <strong>startup assertion</strong>. Call <code>dataSources.retrieve()</code> (not update) when the module loads, check that the properties you write to exist with the types you expect, and throw a loud error if they don't. That turns "someone renamed a column and RSVPs have been failing for two days" into a deploy-time failure. Read-only, no risk, catches the schema-drift problem from §3.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="versus"><span class="num">12</span>Notion vs Neon — the honest comparison</h2>
+
+<div class="scroll">
+<table>
+  <thead><tr><th></th><th>Notion</th><th>Neon (Postgres)</th></tr></thead>
+  <tbody>
+    <tr><td>New dependencies</td><td class="win">None — already installed</td><td>One driver package</td></tr>
+    <tr><td>New service to manage</td><td class="win">None</td><td>A database, plus its env vars</td></tr>
+    <tr><td>Admin UI</td><td class="win">Free, and better than what you'd build</td><td>You build it, and gate it</td></tr>
+    <tr><td>Vicki can edit responses</td><td class="win">Yes, directly</td><td>Only through you</td></tr>
+    <tr><td>Write throughput</td><td class="lose">~3 req/sec</td><td class="win">Effectively unlimited here</td></tr>
+    <tr><td>Uniqueness / upsert</td><td class="lose">None — racy query-then-write</td><td class="win"><code>ON CONFLICT DO UPDATE</code></td></tr>
+    <tr><td>Transactions</td><td class="lose">None</td><td class="win">Yes</td></tr>
+    <tr><td>Schema safety</td><td class="lose">A UI rename breaks writes silently</td><td class="win">Explicit DDL, in version control</td></tr>
+    <tr><td>Query flexibility</td><td class="lose">Filter API, 100 rows/page</td><td class="win">SQL</td></tr>
+    <tr><td>Export to caterer</td><td class="win">Built-in CSV export</td><td>You write it</td></tr>
+    <tr><td>Cost</td><td class="win">Included in your Notion plan</td><td>Free tier is ample</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>The recommendation:</strong> Notion, for this project. The decisive factor isn't any single row above — it's that a wedding RSVP list is a <em>human</em> dataset. Fifty to two hundred rows, read by two people, edited by hand, cross-referenced against a seating chart, exported once to a caterer. The things Postgres is better at (integrity under concurrency, query flexibility, schema discipline) are things this dataset never really exercises. The thing Notion is better at — being a spreadsheet two humans can collaborate in — is the entire job.</p>
+
+<p>Flip to Neon if any of these become true: you want guests to edit their RSVP after submitting and correctness actually matters; the guest list runs to many hundreds; or you find yourself wanting to join RSVP data against something else programmatically.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="deploy"><span class="num">13</span>Deploy checklist</h2>
+
+<ul class="check">
+  <li><code>@astrojs/vercel</code> adapter present, installed via <code>bunx astro add vercel</code> so its version matches Astro 7 / Vite 8</li>
+  <li>No leftover experimental flags in <code>astro.config.mjs</code> — logger, queued rendering, Rust compiler, advanced routing and caching are stable in v7</li>
+  <li>RSVP database <strong>shared with the integration</strong> via Connections, with insert-content capability</li>
+  <li><code>NOTION_RSVP_DATA_SOURCE_ID</code> set in Vercel for Production, Preview and Development (<code>vercel env ls</code> to confirm)</li>
+  <li>Both Notion vars declared in the <code>env.schema</code> block if you're using <code>astro:env</code></li>
+  <li><code>export const prerender = false</code> on the RSVP page</li>
+  <li><strong>Webhook scoped or filtered</strong> so RSVP writes don't trigger site rebuilds (<a href="#webhook">§4</a>) — verify by submitting a test RSVP and confirming no new deployment appears</li>
+  <li>A clean production build passes — the Rust compiler rejects unclosed tags</li>
+  <li>Submit a real RSVP on the preview URL and confirm the row appears in Notion with every property populated correctly</li>
+  <li>Deliberately submit a failing RSVP (oversized text, say) and confirm the guest sees a clear error rather than a silent success</li>
+</ul>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="trouble"><span class="num">14</span>Troubleshooting</h2>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Symptom</th><th>Likely cause</th></tr></thead>
+  <tbody>
+    <tr><td><code>404 object_not_found</code> on an ID you're sure is right</td><td>The integration hasn't been added to the database via ⋯ → Connections. This is the most common Notion API failure by a wide margin, and the 404 (rather than a 403) is what makes it confusing.</td></tr>
+    <tr><td><code>validation_error</code> mentioning a property name</td><td>The key doesn't match the data source's property name exactly, or someone renamed the column in the Notion UI. Case and spaces matter.</td></tr>
+    <tr><td><code>validation_error</code> on a title or text field</td><td>You sent a string where Notion wants an array of rich-text objects: <code>{ title: [{ text: { content: "..." } }] }</code>.</td></tr>
+    <tr><td>Select value rejected</td><td>The option doesn't exist on that property and the property doesn't permit creating options. Map user input to a known set of values.</td></tr>
+    <tr><td><code>429 rate_limited</code></td><td>Over ~3 req/sec. Read <code>Retry-After</code> and back off. Check whether you're making two calls per submission for dedup.</td></tr>
+    <tr><td><code>529</code></td><td>Notion is overloaded. Handle exactly like a 429.</td></tr>
+    <tr><td>Every RSVP triggers a Vercel deployment</td><td>The webhook subscription covers the RSVP database. See <a href="#webhook">§4</a>.</td></tr>
+    <tr><td>Form submits but nothing happens; no server log</td><td>Missing <code>export const prerender = false</code>. The page is static, so there's no handler to receive the POST.</td></tr>
+    <tr><td>Build fails on form markup that "looks fine"</td><td>Astro 7's Rust compiler. Unclosed tags are errors and invalid nesting is no longer auto-corrected.</td></tr>
+    <tr><td>Spacing between labels and inputs looks subtly wrong</td><td><code>compressHTML</code> defaults to <code>'jsx'</code> in v7. Fix with CSS margin/gap rather than literal whitespace.</td></tr>
+    <tr><td>Writes break after a dependency bump with no code change</td><td><code>@notionhq/client ^5.8.0</code> — a minor bump can bring a newer default API version. Check the pinned Notion-Version.</td></tr>
+    <tr><td>Action returns a validation error you don't expect</td><td>Empty form fields arrive as <code>null</code>, not <code>""</code>. Use <code>.nullable()</code> or <code>.optional()</code> on fields a guest can leave blank.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="yourlist"><span class="num">15</span>Your implementation checklist</h2>
+
+<p>The plumbing above is mechanical. These are the parts that need your judgement:</p>
+
+<ul class="check">
+  <li><strong>Create the RSVP database in Notion</strong> and design its columns. Every field is a chance for a guest to abandon the form — cut aggressively.</li>
+  <li><strong>Share it with the integration</strong> and confirm insert-content capability. Do this before writing any code, so your first API call isn't a mystery 404.</li>
+  <li><strong>Scope or filter the webhook</strong> so RSVPs don't trigger rebuilds. Five lines, and it makes an expensive silent failure impossible.</li>
+  <li><strong>Decide on duplicates:</strong> let them happen (recommended), or query-then-update if you want guests to be able to edit their response.</li>
+  <li><strong>Write the Zod input schema.</strong> This is your validation layer — cap free text well under 2000 characters and map any select values to a known set.</li>
+  <li><strong>Write the properties object,</strong> building it conditionally so blank optional fields are omitted rather than sent as null.</li>
+  <li><strong>Handle 429 with a retry and a clear guest-facing failure message.</strong> The worst outcome this feature has is someone believing they've RSVP'd when they haven't.</li>
+  <li><strong>Build the form UI</strong> and handle three states: empty, validation errors inline, and success. The success state is the one people forget — an unclear confirmation makes guests submit again.</li>
+  <li><strong>Set up your Notion views:</strong> a filter for attending, a group by meal choice, a headcount rollup. This is the admin UI you're getting for free — spend ten minutes actually configuring it.</li>
+  <li><strong>Test the full path on a preview deploy,</strong> including a deliberate failure, before sending the link to anyone.</li>
+</ul>
+
+<footer>
+  <p>Written against Astro 7, <code>@notionhq/client</code> v5, and the Notion API data-source model (2025-09-03 and later), current as of August 2026. Verified against the Notion API references for creating a page, updating a data source, property values, and request limits, plus the Astro v7 upgrade guide and the Astro Actions, on-demand-rendering and environment-variables docs.</p>
+  <p>Repo context: <code>/home/jake/repos/wedding</code>. Existing conventions this guide builds on — the client and data-source resolution in <code>src/lib/notion.ts</code>, the <code>findPropertyName()</code> resilience helper, documented <code>.env.example</code> entries, and the log-real-error / return-safe-message handling in <code>src/routes/api/notion-webhook.ts</code>.</p>
+  <p>Companion document: <code>docs/neon-astro-rsvp-guide.html</code> — the same feature backed by Postgres.</p>
+</footer>
+
+</div>
+</body>
+</html>
