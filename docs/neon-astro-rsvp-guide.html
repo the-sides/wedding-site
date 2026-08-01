@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon + Astro 7: RSVP integration guide (jv-wedding)</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --fg: #1c1a17;
+    --muted: #6b645c;
+    --rule: #e3ded6;
+    --accent: #8a5a2b;
+    --accent-soft: #f3ece2;
+    --code-bg: #f5f2ed;
+    --code-fg: #2b2721;
+    --warn-bg: #fdf3e7;
+    --warn-br: #e0b478;
+    --good-bg: #eef5ec;
+    --good-br: #9dbf94;
+    --you-bg: #eef1f7;
+    --you-br: #8fa2c8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16151a;
+      --fg: #e8e4dd;
+      --muted: #9a938a;
+      --rule: #2e2c33;
+      --accent: #d9a76a;
+      --accent-soft: #2a2520;
+      --code-bg: #1e1d23;
+      --code-fg: #ddd8d0;
+      --warn-bg: #2a2118;
+      --warn-br: #7a5a2e;
+      --good-bg: #1a231b;
+      --good-br: #43603f;
+      --you-bg: #1a1e28;
+      --you-br: #3f4d6e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 3rem 1.25rem 8rem; }
+  header.masthead { border-bottom: 2px solid var(--fg); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+  h1 { font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.15; margin: 0 0 .5rem; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); margin: 0; font-size: 1rem; }
+  h2 {
+    font-size: 1.35rem; margin: 3.5rem 0 1rem; padding-top: 1.25rem;
+    border-top: 1px solid var(--rule); letter-spacing: -0.01em;
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; margin-right: .5rem; }
+  h3 { font-size: 1.05rem; margin: 2rem 0 .5rem; }
+  h4 { font-size: .95rem; margin: 1.5rem 0 .4rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+  p, li { max-width: 72ch; }
+  code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: .875em; }
+  p code, li code, td code, h3 code {
+    background: var(--code-bg); padding: .12em .38em; border-radius: 4px; color: var(--code-fg);
+  }
+  pre {
+    background: var(--code-bg); color: var(--code-fg);
+    padding: 1rem 1.1rem; border-radius: 8px; overflow-x: auto;
+    border: 1px solid var(--rule); line-height: 1.55; font-size: .84rem;
+  }
+  pre code { font-size: inherit; }
+  .filename {
+    font: 600 .75rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted); letter-spacing: .03em;
+    background: var(--accent-soft); border: 1px solid var(--rule); border-bottom: none;
+    padding: .5rem .75rem; border-radius: 8px 8px 0 0; display: inline-block; margin-bottom: 0;
+  }
+  .filename + pre { border-radius: 0 8px 8px 8px; margin-top: 0; }
+  .note, .warn, .you {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    padding: .85rem 1rem; margin: 1.25rem 0; border-radius: 0 6px 6px 0; font-size: .94rem;
+  }
+  .warn { border-left-color: var(--warn-br); background: var(--warn-bg); }
+  .you { border-left-color: var(--you-br); background: var(--you-bg); }
+  .note strong:first-child, .warn strong:first-child, .you strong:first-child { display: block; margin-bottom: .25rem; }
+  .note p:last-child, .warn p:last-child, .you p:last-child { margin-bottom: 0; }
+  .note p:first-child, .warn p:first-child, .you p:first-child { margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; margin: 1.25rem 0; }
+  th, td { text-align: left; padding: .55rem .65rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  nav.toc { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 8px; padding: 1rem 1.25rem; margin: 2rem 0 1rem; }
+  nav.toc h4 { margin-top: 0; }
+  nav.toc ol { margin: 0; padding-left: 1.3rem; }
+  nav.toc li { margin: .2rem 0; }
+  a { color: var(--accent); }
+  ul.check { list-style: none; padding-left: 0; }
+  ul.check li { padding-left: 1.7rem; position: relative; margin: .45rem 0; }
+  ul.check li::before {
+    content: "☐"; position: absolute; left: 0; top: 0; color: var(--accent); font-size: 1.05em;
+  }
+  hr { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+  .kicker { font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); font-weight: 700; margin-bottom: .4rem; }
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <div class="kicker">jv-wedding · implementation guide</div>
+  <h1>Wiring Neon Postgres into the Astro&nbsp;7 site</h1>
+  <p class="sub">Everything you need to stand up the database layer, so you can write the RSVP form yourself. Static site, form action posts on submit, client island optional later.</p>
+</header>
+
+<div class="you">
+  <strong>How to read this</strong>
+  <p>The <em>infrastructure</em> code here is complete and copy-pasteable — driver setup, env wiring, config, the request/response plumbing. The <em>RSVP-specific</em> code (fields, validation rules, table columns, UI) is deliberately left as skeletons marked <code>/* YOU WRITE THIS */</code>. Blue boxes flag decisions that are yours to make.</p>
+</div>
+
+<nav class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#arch">The shape of the feature (+ what Astro 7 changes)</a></li>
+    <li><a href="#provision">Provisioning Neon</a></li>
+    <li><a href="#env">Environment variables in Astro</a></li>
+    <li><a href="#driver">Installing the driver &amp; the <code>db.ts</code> module</a></li>
+    <li><a href="#schema">Designing and creating the schema</a></li>
+    <li><a href="#write">The write path — Astro Actions vs API routes</a></li>
+    <li><a href="#read">The read path — an admin view of RSVPs</a></li>
+    <li><a href="#safety">Correctness &amp; safety rules that actually bite</a></li>
+    <li><a href="#local">Local development &amp; Neon branching</a></li>
+    <li><a href="#deploy">Deploy checklist</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
+    <li><a href="#orm">Optional: adding Drizzle later</a></li>
+    <li><a href="#yourlist">Your implementation checklist</a></li>
+  </ol>
+</nav>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="arch"><span class="num">01</span>The shape of the feature</h2>
+
+<p>Right now this site is effectively <strong>static</strong>. Notion posts are fetched at build time, and a Notion webhook hits <code>/api/notion-webhook</code>, which pings a Vercel deploy hook to rebuild the whole site. There is no per-request server work on any page a guest visits.</p>
+
+<p>An RSVP form is the first thing that needs per-request work, because a submission has to be handled <em>at request time</em>. The decision, already made:</p>
+
+<div class="note">
+  <strong>The plan</strong>
+  <p>Stay static. Keep <code>output: 'static'</code>, and mark <em>only</em> the RSVP and admin routes <code>prerender = false</code>. The form is a real <code>&lt;form&gt;</code> wired to an Astro Action that runs on submit. A client island can be layered on later for extra interactivity, but the form works without it.</p>
+</div>
+
+<p>This is the right call for this site, and it's worth being explicit about why the alternative is worse:</p>
+
+<div class="scroll">
+<table>
+  <thead>
+    <tr><th>Option</th><th>Config</th><th>Consequence</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Static + selective on-demand</strong> <em>(chosen)</em></td>
+      <td><code>output: 'static'</code> plus <code>export const prerender = false</code> on only the RSVP and admin routes</td>
+      <td>Guest-facing pages stay prerendered and CDN-fast. The Notion rebuild-on-webhook flow keeps working exactly as it does now. Only the RSVP endpoints run a function.</td>
+    </tr>
+    <tr>
+      <td><strong>Fully server-rendered</strong></td>
+      <td><code>output: 'server'</code></td>
+      <td>Every page becomes a function invocation. Your Notion pages would hit the Notion API on every request unless you add caching — and the deploy-hook rebuild loop becomes pointless. Rejected.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>Astro 7 keeps this model unchanged from Astro 5: <code>output: 'static'</code> is the default, and <code>prerender = false</code> opts individual routes out of it. (The old <code>output: 'hybrid'</code> mode is long gone — static plus per-route opt-out <em>is</em> hybrid now.) You still need an adapter, because "some routes run on a server" requires one:</p>
+
+<div class="filename">astro.config.mjs</div>
+<pre><code>import { defineConfig } from 'astro/config';
+import vercel from '@astrojs/vercel';
+
+export default defineConfig({
+  // 'static' is the default — every page is prerendered unless it opts out
+  adapter: vercel(),
+});</code></pre>
+
+<p>Install it with <code>bunx astro add vercel</code> (this repo uses Bun), which installs the <code>@astrojs/vercel</code> version matching your Astro 7 install and edits the config for you. Don't pin the adapter by hand — Astro 7 ships on Vite 8, and a mismatched adapter is a confusing failure mode.</p>
+
+<div class="warn">
+  <strong>Watch for a conflict with the Astro port</strong>
+  <p>The agent doing the Astro migration may have already set <code>output: 'server'</code> or added an adapter. Check <code>astro.config.mjs</code> before changing anything, and hold it to the decision above.</p>
+</div>
+
+<h3>What Astro 7 changes for this feature</h3>
+
+<p>Most of what follows is version-stable. Four v7 changes do touch this work, and each is explained where it matters:</p>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Change</th><th>Why it matters here</th><th>Where</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>@astrojs/db</code> <strong>removed entirely</strong></td>
+      <td>Astro's own database package no longer exists. Bringing your own Postgres — exactly what you're doing — is now the only path. It also means most "Astro + database" tutorials you'll find are dead.</td>
+      <td><a href="#schema">§5</a>, <a href="#orm">§12</a></td>
+    </tr>
+    <tr>
+      <td>Rust compiler is now the default</td>
+      <td>Unclosed tags are errors, and invalid HTML is no longer silently auto-corrected. A form is the most markup-dense thing you'll write, so this is where you'll meet it.</td>
+      <td><a href="#write">§6</a></td>
+    </tr>
+    <tr>
+      <td><code>src/fetch.ts</code> advanced routing (stable)</td>
+      <td>Full control of the request pipeline, including running auth <em>before</em> Actions. The clean way to gate the admin page.</td>
+      <td><a href="#read">§7</a></td>
+    </tr>
+    <tr>
+      <td><code>compressHTML</code> defaults to <code>'jsx'</code></td>
+      <td>Whitespace between inline elements is stripped by JSX rules rather than HTML rules. Occasionally visible in form label/input spacing.</td>
+      <td><a href="#trouble">§11</a></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>Unrelated to RSVPs but relevant to the port in flight: v7 also swaps the default Markdown processor to Sätteri (remark/rehype plugins need migrating or <code>@astrojs/markdown-remark</code> reinstalled), and previously-experimental flags for the logger, queued rendering, the Rust compiler, advanced routing, and caching are now stable — delete them from <code>astro.config.mjs</code> if the port added any.</p>
+
+<h3>Where the pieces will live</h3>
+<pre><code>src/
+├── lib/
+│   ├── notion.ts          ← existing pattern: server-only data module
+│   └── db.ts              ← NEW: Neon client + RSVP query functions
+├── actions/
+│   └── index.ts           ← NEW: the RSVP action (validation + write)
+├── fetch.ts               ← OPTIONAL (Astro 7): request pipeline, admin auth
+├── pages/
+│   ├── rsvp.astro         ← NEW: the form page (prerender = false)
+│   └── admin/
+│       └── rsvps.astro    ← NEW: read view (prerender = false)
+└── db/
+    └── schema.sql         ← NEW: checked-in DDL, your source of truth</code></pre>
+
+<div class="warn">
+  <strong><code>src/fetch.ts</code> is a reserved filename in Astro 7</strong>
+  <p>If the repo already has a <code>src/fetch.ts</code> used for something else, Astro will now interpret it as the advanced-routing entrypoint. Rename it, or point Astro elsewhere with the <code>fetchFile</code> config option.</p>
+</div>
+
+<p>Note that <code>src/lib/db.ts</code> mirrors the existing <code>src/lib/notion.ts</code> convention in this repo: a module that reads secrets from the environment, is only ever imported by server code, and exposes typed functions rather than raw client access.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="provision"><span class="num">02</span>Provisioning Neon</h2>
+
+<p>Two routes. They differ in who owns the environment variables.</p>
+
+<h3>Path A — via the Vercel Marketplace (recommended for this project)</h3>
+
+<p>Since the site already deploys to Vercel, installing Neon from the Vercel Marketplace means Vercel provisions the database and injects the connection variables into the project automatically — nothing to copy by hand, and it stays in sync.</p>
+
+<pre><code># from the repo root
+vercel integration add neon
+
+# or: Vercel Dashboard → your project → Storage → Create → Neon</code></pre>
+
+<p>After it's linked, pull the variables down for local development:</p>
+
+<pre><code>vercel env pull .env</code></pre>
+
+<p>The integration sets these:</p>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Variable</th><th>What it is</th><th>Use it?</th></tr></thead>
+  <tbody>
+    <tr><td><code>DATABASE_URL</code></td><td>Pooled connection string (routed through PgBouncer)</td><td><strong>Yes — this is the one you want.</strong></td></tr>
+    <tr><td><code>DATABASE_URL_UNPOOLED</code></td><td>Direct connection to the Postgres endpoint</td><td>Only for migrations or long-lived sessions.</td></tr>
+    <tr><td><code>PGHOST</code>, <code>PGUSER</code>, <code>PGDATABASE</code>, <code>PGPASSWORD</code>, <code>PGHOST_UNPOOLED</code></td><td>The raw pieces, if you need to assemble a custom string</td><td>No.</td></tr>
+    <tr><td><code>POSTGRES_*</code></td><td>Aliases kept for backwards compatibility with old Vercel Postgres templates</td><td>No.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>Pooled vs unpooled</strong> is the one connection concept worth internalising. Serverless functions come and go constantly; if each one opened a direct Postgres connection you'd exhaust the connection limit under any real traffic. The pooled string hands you a PgBouncer-managed connection instead. For a wedding RSVP form that's overkill in volume terms but it costs nothing and it's the correct default, so use <code>DATABASE_URL</code> everywhere except schema migrations.</p>
+
+<div class="note">
+  <strong>Preview deployments get their own database branch</strong>
+  <p>If you enable preview branching in the integration, each Vercel preview deploy gets branch-scoped connection variables injected at deploy time. Those values are deliberately <em>not</em> visible in the project's env var settings — they only exist for that deployment. Practical upshot: RSVPs submitted against a preview URL land in a throwaway branch, not production. That's the behaviour you want, but don't be confused when a test submission doesn't show up in the real table.</p>
+</div>
+
+<h3>Path B — directly at neon.com</h3>
+
+<p>Create a project at <a href="https://console.neon.tech">console.neon.tech</a>, copy the pooled connection string from the dashboard, and paste it into <code>.env</code> yourself. You then also have to add it manually to Vercel (<code>vercel env add DATABASE_URL production</code>). Choose this only if you want the database to outlive the Vercel project.</p>
+
+<p>Either way the string looks like:</p>
+<pre><code>postgresql://USER:PASSWORD@ep-something-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&amp;channel_binding=require</code></pre>
+
+<p>The <code>-pooler</code> in the hostname is how you tell at a glance that it's the pooled variant.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="env"><span class="num">03</span>Environment variables in Astro</h2>
+
+<p>Astro gives you two mechanisms. They are not equivalent, and for a database credential the difference matters.</p>
+
+<h3>The quick way: <code>import.meta.env</code></h3>
+<pre><code>const sql = neon(import.meta.env.DATABASE_URL);</code></pre>
+<p>Works, no config. But there's no type safety, no validation, and nothing stops a future you from importing that module into a client component and leaking the credential into the browser bundle.</p>
+
+<h3>The right way: <code>astro:env</code></h3>
+
+<p>Astro's typed env schema lets you declare a variable as server-only <em>and</em> secret. Secrets declared this way are <strong>not included in the client bundle at all</strong> and are only reachable through the <code>astro:env/server</code> module — so an accidental client import becomes a build error instead of a leaked password.</p>
+
+<div class="filename">astro.config.mjs</div>
+<pre><code>import { defineConfig, envField } from 'astro/config';
+import vercel from '@astrojs/vercel';
+
+export default defineConfig({
+  adapter: vercel(),
+  env: {
+    schema: {
+      DATABASE_URL: envField.string({
+        context: 'server',
+        access: 'secret',
+      }),
+    },
+  },
+});</code></pre>
+
+<p>Then, in server code only:</p>
+<pre><code>import { DATABASE_URL } from 'astro:env/server';</code></pre>
+
+<div class="warn">
+  <strong>Build-time validation gotcha</strong>
+  <p>Astro validates every secret in the schema whenever anything imports from <code>astro:env/server</code> — even variables you don't actually use in that file. If a CI build doesn't have <code>DATABASE_URL</code> set, the build fails. Either make sure the variable is present in every build environment (it will be, if you used the Vercel integration), or mark it <code>optional: true</code> and handle the undefined case.</p>
+</div>
+
+<h3>Files to update</h3>
+
+<p>This repo already gitignores <code>.env</code>, and keeps a documented <code>.env.example</code>. Follow that convention — append to it in the same commented style as the Notion block:</p>
+
+<div class="filename">.env.example</div>
+<pre><code># Neon Postgres
+# Pooled connection string. From the Vercel Neon integration
+# (auto-injected in deployments) or the Neon dashboard.
+# Run `vercel env pull .env` to populate locally.
+DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require</code></pre>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="driver"><span class="num">04</span>Installing the driver &amp; the <code>db.ts</code> module</h2>
+
+<pre><code>bun add @neondatabase/serverless</code></pre>
+
+<p>Neon works with any Postgres client (<code>pg</code>, <code>postgres.js</code>), but <code>@neondatabase/serverless</code> is the one to use here: it can issue queries over plain HTTP <code>fetch</code> instead of holding a TCP connection open. In a serverless function that runs for 40ms and dies, skipping the connection handshake is a meaningful latency win — and it works in any runtime that has <code>fetch</code>.</p>
+
+<h3>Two client shapes, and when each applies</h3>
+
+<div class="scroll">
+<table>
+  <thead><tr><th></th><th><code>neon()</code> — HTTP</th><th><code>Pool</code> / <code>Client</code> — WebSocket</th></tr></thead>
+  <tbody>
+    <tr><td>Good for</td><td>One-shot queries; serverless request handlers</td><td>Many queries in one session; interactive transactions</td></tr>
+    <tr><td>Transactions</td><td>Non-interactive only, via <code>sql.transaction([...])</code></td><td>Full <code>BEGIN</code> / <code>COMMIT</code> with logic in between</td></tr>
+    <tr><td>node-postgres compatible</td><td>No</td><td>Yes</td></tr>
+    <tr><td>For your RSVP form</td><td><strong>This one.</strong></td><td>Not needed.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>An RSVP submission is "insert one row, maybe insert a few guest rows, return". That's a one-shot, and if you do need multiple statements atomically, <code>sql.transaction()</code> covers it without an interactive session.</p>
+
+<div class="filename">src/lib/db.ts</div>
+<pre><code>import { neon } from '@neondatabase/serverless';
+import { DATABASE_URL } from 'astro:env/server';
+
+export const sql = neon(DATABASE_URL);</code></pre>
+
+<p>That's the whole client. There is no pool to configure and no connection to close — <code>sql</code> is a function that makes an HTTP request when you call it.</p>
+
+<div class="you">
+  <strong>Your call: how much to put in this file</strong>
+  <p>The pattern in <code>src/lib/notion.ts</code> is that the module owns the domain functions and callers never touch the raw client. Doing the same here — exporting <code>createRsvp()</code> / <code>listRsvps()</code> rather than bare <code>sql</code> — keeps SQL out of your route files and gives you one place to put types. Worth following, but it's a taste call.</p>
+</div>
+
+<h3>Query syntax</h3>
+
+<p>The tagged template is the primary interface, and it <strong>parameterizes automatically</strong>:</p>
+
+<pre><code>const email = formData.get('email');
+const rows = await sql`SELECT * FROM rsvps WHERE email = ${email}`;
+//                                                  ↑ becomes $1, sent separately</code></pre>
+
+<p>The interpolated value is never spliced into the SQL text — it's sent as a bound parameter. This is what makes the template form injection-safe, and it's why you should reach for it by default.</p>
+
+<p>Three escape hatches exist:</p>
+<pre><code>// 1. Manual parameterization, when you're building SQL programmatically
+await sql.query('SELECT * FROM rsvps WHERE email = $1', [email]);
+
+// 2. Composition — nested fragments keep their parameter numbering straight
+const whereClause = sql`WHERE attending = ${true}`;
+await sql`SELECT * FROM rsvps ${whereClause} ORDER BY created_at DESC`;
+
+// 3. Raw interpolation — ONLY for values you control, never user input
+await sql`SELECT * FROM ${sql.unsafe(tableName)}`;</code></pre>
+
+<h3>Return shape</h3>
+
+<p>By default you get an array of plain row objects. If you want node-postgres-style metadata (<code>rowCount</code>, <code>fields</code>, <code>command</code>), construct the client with <code>{ fullResults: true }</code>. For an RSVP form the default is fine.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="schema"><span class="num">05</span>Designing and creating the schema</h2>
+
+<div class="you">
+  <strong>This is the most consequential decision in the whole feature</strong>
+  <p>Everything below is a sketch to react to, not a spec to copy. The shape of your data follows from how you're inviting people, and only you know that.</p>
+</div>
+
+<div class="warn">
+  <strong>Ignore anything you find about Astro DB</strong>
+  <p>Astro 7 <strong>removed <code>@astrojs/db</code> entirely</strong>. A lot of the "add a database to Astro" material online is built on it and no longer applies — if a tutorial mentions <code>astro:db</code>, <code>defineTable()</code>, or <code>db.insert()</code>, it's for an older major. Bringing your own Postgres, the way this guide does, is now the supported path, and Astro's own migration advice points at Drizzle or plain drivers.</p>
+</div>
+
+<h3>The modelling question: one table or two?</h3>
+
+<p><strong>One flat table</strong> — one row per person who responds. Simple, easy to query, easy to export to a spreadsheet. Falls apart if you need "the Smith party has 4 seats" logic or a single invite code covering a household.</p>
+
+<p><strong>Two tables (parties + guests)</strong> — a <code>parties</code> row per invitation with an invite code and an allowed headcount, and a <code>guests</code> row per person. This is what you want if you're gating RSVPs behind a code, controlling plus-ones, or need "who hasn't responded yet".</p>
+
+<p>Ask yourself: <em>can a stranger who finds the URL submit an RSVP?</em> If the answer must be no, you need the two-table model, because the invite code has to live somewhere and be checked server-side.</p>
+
+<h3>A starting schema</h3>
+
+<div class="filename">src/db/schema.sql</div>
+<pre><code>-- Adapt freely. Committing this file gives you a reviewable
+-- record of the schema, which matters when there's no ORM.
+
+create table if not exists parties (
+  id            uuid primary key default gen_random_uuid(),
+  invite_code   text unique not null,     -- what a guest types to unlock the form
+  display_name  text not null,            -- "The Smith Family"
+  max_guests    integer not null default 2,
+  created_at    timestamptz not null default now()
+);
+
+create table if not exists rsvps (
+  id            uuid primary key default gen_random_uuid(),
+  party_id      uuid references parties(id) on delete cascade,
+  name          text not null,
+  email         text,
+  attending     boolean not null,
+  /* YOU WRITE THIS: meal choice? dietary notes? song request?
+     plus-one name? which events (welcome dinner / ceremony / brunch)? */
+  submitted_at  timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+create index if not exists rsvps_party_id_idx on rsvps (party_id);</code></pre>
+
+<div class="note">
+  <strong>Four things worth doing regardless of the shape you pick</strong>
+  <ul style="margin-bottom:0">
+    <li><code>timestamptz</code>, never <code>timestamp</code>. Postgres's plain <code>timestamp</code> silently discards the offset; you will regret it the first time you look at submission times from a different timezone.</li>
+    <li><code>create table if not exists</code> so re-running the file is harmless.</li>
+    <li>A <strong>uniqueness constraint</strong> on whatever identifies a person (e.g. <code>unique (party_id, lower(name))</code>). This is what lets you handle "guest submits twice" as an upsert instead of a duplicate.</li>
+    <li>Nullable rather than <code>not null</code> for optional fields — a guest half-filling the form should not 500.</li>
+  </ul>
+</div>
+
+<h3>Running it</h3>
+
+<p>No migration tooling is needed for a project this size. Pick one:</p>
+
+<ul>
+  <li><strong>Neon SQL Editor</strong> — paste and run in the dashboard. Fastest for the first setup.</li>
+  <li><strong>psql</strong> — <code>psql "$DATABASE_URL_UNPOOLED" -f src/db/schema.sql</code>. Use the <em>unpooled</em> string for DDL; PgBouncer's pooling mode doesn't play nicely with some session-level statements.</li>
+  <li><strong>A one-off script</strong> — <code>bun run src/db/migrate.ts</code> reading the <code>.sql</code> file and executing it. Nice if you want it reproducible, overkill if you're editing the schema three times total.</li>
+</ul>
+
+<p>Whichever you pick, apply schema changes to your Neon <em>dev branch</em> first (see §9), then to production.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="write"><span class="num">06</span>The write path — Astro Actions vs API routes</h2>
+
+<p>Astro gives you two ways to handle a POST. Given the plan — a real form that posts on submit, no island required — Actions are the right tool. The API route section is here for completeness and for anything a third party needs to call.</p>
+
+<h3>Option A — Astro Actions (the plan)</h3>
+
+<p>An Action is a server function with a Zod schema attached. Astro generates a type-safe client for it, validates input before your handler runs, and — the part that matters for a wedding site — supports plain HTML form submission, so the form <strong>works with JavaScript disabled or still loading</strong>. Some fraction of your guests will be on bad hotel wifi on a phone. That fraction gets a working form for free.</p>
+
+<p>This is also what makes the "island later" plan cheap: the form action is the baseline behaviour, and an island is pure enhancement on top of a thing that already works.</p>
+
+<div class="filename">src/actions/index.ts</div>
+<pre><code>import { defineAction, ActionError } from 'astro:actions';
+import { z } from 'astro/zod';
+import { sql } from '../lib/db';
+
+export const server = {
+  rsvp: defineAction({
+    accept: 'form',              // parse FormData, not JSON
+    input: z.object({
+      /* YOU WRITE THIS — the schema *is* your validation.
+         Notes on form-specific Zod behaviour:
+           - text inputs      → z.string()
+           - checkboxes       → z.coerce.boolean()
+           - number inputs    → z.number()
+           - repeated names   → z.array(...)
+           - empty values arrive as null (except arrays/booleans) */
+      name: z.string().min(1, 'Please tell us your name'),
+      attending: z.coerce.boolean(),
+    }),
+    handler: async (input, context) =&gt; {
+      /* YOU WRITE THIS — the insert.
+
+         `input` is already validated and typed by the time you get here,
+         so no manual checking is needed.
+
+         Throw ActionError for expected failures — it becomes a typed
+         error on the client rather than an unhandled 500: */
+      // throw new ActionError({ code: 'NOT_FOUND', message: 'Invite code not recognised' });
+
+      const [row] = await sql`
+        INSERT INTO rsvps (name, attending)
+        VALUES (${input.name}, ${input.attending})
+        RETURNING id
+      `;
+
+      return { id: row.id };
+    },
+  }),
+};</code></pre>
+
+<h4>Consuming it from a plain Astro form</h4>
+
+<div class="filename">src/pages/rsvp.astro</div>
+<pre><code>---
+import { actions } from 'astro:actions';
+
+export const prerender = false;  // REQUIRED: form actions need on-demand rendering
+
+// Reads the result of a submission on this same request.
+// Returns null on a fresh GET.
+const result = Astro.getActionResult(actions.rsvp);
+
+// Post/Redirect/Get — stops a browser refresh from resubmitting
+if (result &amp;&amp; !result.error) {
+  return Astro.redirect('/rsvp/thanks');
+}
+---
+
+&lt;form method="POST" action={actions.rsvp}&gt;
+  {/* YOU WRITE THIS — your fields.
+
+      `result.error` is populated on validation failure. Its
+      `.fields` property maps field name → error messages, which is
+      what you'd use to render inline errors next to each input. */}
+&lt;/form&gt;</code></pre>
+
+<div class="warn">
+  <strong><code>export const prerender = false</code> is not optional</strong>
+  <p>A prerendered page has no server to POST to. Omit this line and the submission 404s or silently does nothing — and because the page still <em>renders</em> fine, it's an easy hour to lose. Put it on the RSVP page and on any admin page that queries the database.</p>
+</div>
+
+<div class="warn">
+  <strong>Astro 7's Rust compiler will not forgive sloppy form markup</strong>
+  <p>The Rust-based <code>.astro</code> compiler is the default in v7, and it changes two things you will hit while building a form: <strong>unclosed tags are now errors</strong> rather than being quietly accepted, and <strong>semantically invalid HTML is no longer auto-corrected</strong>. The Go compiler used to paper over both.</p>
+  <p style="margin-bottom:0">The usual offenders in a form: an unclosed <code>&lt;label&gt;</code> or <code>&lt;option&gt;</code>, a <code>&lt;div&gt;</code> nested inside a <code>&lt;p&gt;</code>, a stray <code>&lt;/div&gt;</code> after refactoring a fieldset, or a nested <code>&lt;form&gt;</code>. These now fail the build instead of rendering something almost-right. That's a net win — the error is at build time rather than a mystery layout bug — but expect to meet it, and read the compiler error rather than assuming your Action is broken.</p>
+</div>
+
+<h4>Later: adding a client island</h4>
+
+<p>This repo leans heavily on React (shadcn, Radix, Base UI), so at some point you may want richer interaction — live headcount validation, a nicer date/meal picker, optimistic UI. The action you wrote above is already callable from client code, no second endpoint needed:</p>
+
+<pre><code>import { actions } from 'astro:actions';
+
+const { data, error } = await actions.rsvp({ name, attending });
+if (error) { /* error.code, error.message, error.fields */ }
+// or actions.rsvp.orThrow({ ... }) if you'd rather catch</code></pre>
+
+<p>The important part is <em>how</em> you add it. Keep the real <code>&lt;form method="POST" action={actions.rsvp}&gt;</code> as the markup, and let the island attach an <code>onSubmit</code> handler that calls the action and prevents the default. Then the no-JS path still submits normally and the island is pure enhancement. If you instead build a React form that only submits via <code>onSubmit</code>, you have quietly traded away the fallback — which is the one property that made Actions worth choosing in the first place.</p>
+
+<h3>Option B — a classic API route</h3>
+
+<p>If you'd rather own the HTTP layer, or the form is fully client-driven:</p>
+
+<div class="filename">src/pages/api/rsvp.ts</div>
+<pre><code>import type { APIRoute } from 'astro';
+import { sql } from '../../lib/db';
+
+export const prerender = false;
+
+export const POST: APIRoute = async ({ request }) =&gt; {
+  const body = await request.json();
+
+  /* YOU WRITE THIS: validate `body` yourself — there is no schema
+     doing it for you here. Then insert, then shape the response. */
+
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 201,
+    headers: { 'Content-Type': 'application/json' },
+  });
+};</code></pre>
+
+<p>This is the shape the existing <code>src/routes/api/notion-webhook.ts</code> already has in TanStack terms, so it'll feel familiar. The cost relative to Actions is that validation, typing, and the no-JS path are all now your problem.</p>
+
+<div class="scroll">
+<table>
+  <thead><tr><th></th><th>Action</th><th>API route</th></tr></thead>
+  <tbody>
+    <tr><td>Input validation</td><td>Zod schema, automatic</td><td>Hand-rolled</td></tr>
+    <tr><td>Client types</td><td>Generated</td><td>None</td></tr>
+    <tr><td>Works without JS</td><td>Yes, with <code>accept: 'form'</code></td><td>No</td></tr>
+    <tr><td>External callers (webhooks, curl)</td><td>Awkward</td><td>Natural</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Use Actions for the RSVP form. Keep API routes in mind for anything a third party needs to call.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="read"><span class="num">07</span>The read path — an admin view of RSVPs</h2>
+
+<p>You'll want to see responses without opening the Neon console. In Astro, a page component's frontmatter runs on the server, so you can query directly there — no API layer needed:</p>
+
+<div class="filename">src/pages/admin/rsvps.astro</div>
+<pre><code>---
+import { sql } from '../../lib/db';
+
+export const prerender = false;   // must query at request time
+
+/* YOU WRITE THIS: gate access. Options, roughly in order of effort:
+     - Vercel Deployment Protection / password protection on the route
+     - a secret in the URL path (/admin/rsvps-9f2ac...) — weak but instant
+     - a Basic auth check here in the frontmatter
+     - a check in src/fetch.ts, so it applies to every /admin route (below)
+   Do NOT ship this page ungated. Guest names, emails and dietary
+   information are exactly the kind of thing you don't want indexed. */
+
+const rows = await sql`
+  SELECT name, attending, submitted_at
+  FROM rsvps
+  ORDER BY submitted_at DESC
+`;
+---
+
+&lt;h1&gt;RSVPs ({rows.length})&lt;/h1&gt;
+{/* YOU WRITE THIS: the table, a headcount, a CSV export button */}</code></pre>
+
+<h3>Gating it with <code>src/fetch.ts</code> (Astro 7)</h3>
+
+<p>Astro 7 stabilised <strong>advanced routing</strong>: a <code>src/fetch.ts</code> file that exports a standard fetch handler and gives you full control over the request pipeline. It's the Cloudflare Workers / Deno shape, and it runs <em>before</em> Astro's own routing — which means before Actions, before middleware, before page frontmatter.</p>
+
+<p>That ordering is the reason to use it here. A check in page frontmatter protects one page; a check in <code>src/fetch.ts</code> protects everything under <code>/admin</code>, including any endpoint you add later and forget to gate.</p>
+
+<div class="filename">src/fetch.ts</div>
+<pre><code>import { astro, FetchState } from 'astro/fetch';
+
+export default {
+  fetch(request: Request) {
+    const state = new FetchState(request);
+
+    if (state.url.pathname.startsWith('/admin')) {
+      /* YOU WRITE THIS: your check — a Basic auth header, a signed
+         cookie, a shared secret. Return a 401/redirect to reject. */
+    }
+
+    // hand off to Astro's normal routing
+    return astro(state);
+  },
+};</code></pre>
+
+<p>The same file is also how you'd proxy paths to an external backend, or run anything that must happen before an Action fires. You don't need it for the RSVP flow itself — the Action handles that fine — so treat it as the admin-gating tool and nothing more for now.</p>
+
+<div class="note">
+  <strong>Also add <code>/admin</code> to <code>public/robots.txt</code></strong>
+  <p>The file already exists in this repo. Blocking crawlers isn't access control, but it costs one line and keeps guest data out of search results if the gate ever slips.</p>
+</div>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="safety"><span class="num">08</span>Correctness &amp; safety rules that actually bite</h2>
+
+<h3>1. Never build SQL with string concatenation</h3>
+<pre><code>// ✗ catastrophic — this is a SQL injection
+await sql.query(`SELECT * FROM rsvps WHERE email = '${email}'`);
+
+// ✓ parameterized
+await sql`SELECT * FROM rsvps WHERE email = ${email}`;</code></pre>
+<p>The tagged template makes the safe thing the easy thing. The only way to get this wrong is to deliberately reach for <code>sql.query()</code> with a built string, or <code>sql.unsafe()</code> on user input.</p>
+
+<h3>2. Make resubmission idempotent</h3>
+<p>Guests <em>will</em> submit twice — double-click, back button, "wait, I need to add my husband". Decide what the second submission means. The usual answer is upsert:</p>
+<pre><code>INSERT INTO rsvps (party_id, name, attending)
+VALUES (${partyId}, ${name}, ${attending})
+ON CONFLICT (party_id, name)
+DO UPDATE SET attending = EXCLUDED.attending, updated_at = now()</code></pre>
+<p>This requires the unique constraint from §5 to exist — <code>ON CONFLICT</code> needs an index to conflict <em>on</em>. If you'd rather keep a full history, insert every time and select the latest per person on read.</p>
+
+<h3>3. Multiple related inserts should be atomic</h3>
+<p>If one submission writes a party row plus several guest rows, a partial failure leaves you with half a household. The HTTP driver supports non-interactive transactions:</p>
+<pre><code>await sql.transaction([
+  sql`INSERT INTO rsvps (...) VALUES (...)`,
+  sql`INSERT INTO rsvps (...) VALUES (...)`,
+]);</code></pre>
+<p>The limitation: you must know all the statements up front. If you need to read a value and branch on it mid-transaction, that's an interactive transaction — switch to <code>Pool</code> from the same package for that endpoint.</p>
+
+<h3>4. Assume the form will be found by bots</h3>
+<p>A public wedding site with a POST endpoint will get spam. Cheap defences, in order of value:</p>
+<ul>
+  <li><strong>Invite code</strong> — the real fix. Nothing writes without a valid code.</li>
+  <li><strong>Honeypot field</strong> — a visually hidden input that humans never fill; drop any submission where it's non-empty. Two lines, catches most naive bots.</li>
+  <li><strong>Length caps in the Zod schema</strong> — <code>z.string().max(200)</code> on free-text fields stops someone pasting a novel into your database.</li>
+  <li><strong>Vercel BotID</strong> — platform-level bot detection, if it becomes a real problem.</li>
+</ul>
+
+<h3>5. Don't leak database errors to guests</h3>
+<pre><code>try {
+  await sql`INSERT INTO ...`;
+} catch (error) {
+  console.error('RSVP insert failed:', error);   // full detail → Vercel logs
+  throw new ActionError({
+    code: 'INTERNAL_SERVER_ERROR',
+    message: 'Something went wrong saving your RSVP. Please try again.',
+  });
+}</code></pre>
+<p>This matches how <code>notion-webhook.ts</code> already handles failures — log the real error, return something safe.</p>
+
+<h3>6. Small things</h3>
+<ul>
+  <li><strong>Create the client at module scope</strong>, not inside the handler. On Vercel's Fluid Compute, function instances are reused across requests, so module-level setup happens once instead of per-request.</li>
+  <li><strong>64 MB</strong> is the cap on HTTP query request/response size. Irrelevant for RSVPs; relevant if you ever store photos in Postgres (don't — use Vercel Blob).</li>
+  <li><strong>Timeouts:</strong> <code>fetchOptions: { signal }</code> lets you abort a hanging query with an <code>AbortController</code>. Worth adding only if you see it in practice.</li>
+</ul>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="local"><span class="num">09</span>Local development &amp; Neon branching</h2>
+
+<p>Neon's branching is the feature that makes local development against a real database pleasant. A branch is a copy-on-write clone of your data — instant, effectively free, and fully isolated. You don't need Docker or a local Postgres.</p>
+
+<pre><code># Neon dashboard → Branches → Create branch, or:
+neonctl branches create --name dev
+
+# Point local dev at the branch's pooled connection string
+# in .env — production data stays untouched.</code></pre>
+
+<p>The workflow this enables:</p>
+<ol>
+  <li>Develop and test schema changes against <code>dev</code>. Break things freely.</li>
+  <li>When the schema is right, apply the same DDL to <code>main</code>.</li>
+  <li>Before any risky change to production data, branch <code>main</code> first — that branch is your rollback.</li>
+</ol>
+
+<div class="warn">
+  <strong>Two env files, two databases</strong>
+  <p><code>vercel env pull .env</code> overwrites <code>.env</code> with <em>production</em> values. If you've pointed <code>.env</code> at your dev branch, that command will silently repoint you at production and your test RSVPs will land in the real table. Either re-edit <code>DATABASE_URL</code> after every pull, or pull into <code>.env.production.local</code> and keep <code>.env</code> hand-maintained.</p>
+</div>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="deploy"><span class="num">10</span>Deploy checklist</h2>
+
+<ul class="check">
+  <li><code>@astrojs/vercel</code> adapter present in <code>astro.config.mjs</code>, installed via <code>bunx astro add vercel</code> so its version matches Astro 7 / Vite 8</li>
+  <li>No leftover experimental flags in <code>astro.config.mjs</code> — logger, queued rendering, Rust compiler, advanced routing and caching are all stable in v7 and the flags now error or warn</li>
+  <li>A clean production build passes — the Rust compiler rejects unclosed tags that dev may have tolerated in older majors</li>
+  <li><code>DATABASE_URL</code> exists in the Vercel project for Production, Preview, and Development (automatic if you used the Marketplace integration — verify with <code>vercel env ls</code>)</li>
+  <li><code>DATABASE_URL</code> declared in the <code>env.schema</code> block if you're using <code>astro:env</code></li>
+  <li><code>export const prerender = false</code> on the RSVP page, the admin page, and any API route</li>
+  <li>Schema applied to the production Neon branch, not just your dev branch</li>
+  <li><code>.env</code> is gitignored (it already is) and <code>.env.example</code> documents the new variable</li>
+  <li>Admin route is gated, and <code>/admin</code> is in <code>public/robots.txt</code></li>
+  <li>Submit a real RSVP on the preview URL, then confirm the row landed in the branch you expect</li>
+  <li>Check the function logs in the Vercel dashboard after that first submission — a silent failure looks identical to success from the browser</li>
+</ul>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="trouble"><span class="num">11</span>Troubleshooting</h2>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Symptom</th><th>Likely cause</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Form submits but nothing happens; no server log</td>
+      <td>Missing <code>export const prerender = false</code>. The page is static, so there's no handler to receive the POST.</td>
+    </tr>
+    <tr>
+      <td><code>DATABASE_URL is not defined</code> at build time</td>
+      <td><code>astro:env</code> validates every declared secret when anything imports <code>astro:env/server</code>. The variable is missing from the build environment — add it, or mark it <code>optional: true</code>.</td>
+    </tr>
+    <tr>
+      <td>Works locally, fails on Vercel</td>
+      <td>The variable exists in <code>.env</code> but was never added to the Vercel project, or was added only to Production and you're testing a Preview.</td>
+    </tr>
+    <tr>
+      <td><code>too many connections</code></td>
+      <td>You're using <code>DATABASE_URL_UNPOOLED</code> in request handlers. Switch to the pooled string.</td>
+    </tr>
+    <tr>
+      <td>Client-side import error mentioning <code>astro:env/server</code></td>
+      <td>Correct behaviour — something in the browser bundle is importing <code>db.ts</code>. Find the import chain; a client component is pulling in server code.</td>
+    </tr>
+    <tr>
+      <td>Test RSVPs never appear in the table</td>
+      <td>Preview deploys use a branch-scoped database. Check the Neon branch that corresponds to that deployment, not <code>main</code>.</td>
+    </tr>
+    <tr>
+      <td><code>ON CONFLICT</code> raises "no unique or exclusion constraint matching"</td>
+      <td>The unique index the upsert targets doesn't exist yet. Add it to the schema and re-apply.</td>
+    </tr>
+    <tr>
+      <td>Action returns a validation error you don't expect</td>
+      <td>Empty form fields arrive as <code>null</code>, not <code>""</code>. Use <code>.nullable()</code> or <code>.optional()</code> on fields a guest can leave blank.</td>
+    </tr>
+    <tr>
+      <td>Build fails on form markup that "looks fine"</td>
+      <td>Astro 7's Rust compiler. Unclosed tags are errors and invalid nesting is no longer auto-corrected. Read the compiler error — it points at the tag.</td>
+    </tr>
+    <tr>
+      <td>Spacing between labels, inputs or inline elements looks subtly wrong</td>
+      <td><code>compressHTML</code> now defaults to <code>'jsx'</code>, which strips whitespace between inline elements by JSX rules. Fix it in CSS (margin/gap) rather than relying on a literal space in the markup.</td>
+    </tr>
+    <tr>
+      <td>A tutorial's <code>astro:db</code> / <code>defineTable()</code> code won't resolve</td>
+      <td><code>@astrojs/db</code> was removed in Astro 7. That material is for an older major — use the Neon driver approach in this guide.</td>
+    </tr>
+    <tr>
+      <td>Requests behave oddly after adding an unrelated <code>src/fetch.ts</code></td>
+      <td>That filename is reserved in v7 as the advanced-routing entrypoint. Rename the file or set the <code>fetchFile</code> config option.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="orm"><span class="num">12</span>Optional: adding Drizzle later</h2>
+
+<p>Drizzle is a TypeScript query builder that layers on top of the same Neon driver, giving you typed results and generated migrations. It's a good fit if the schema is going to keep moving — and with <code>@astrojs/db</code> gone in v7, it's now the closest thing Astro has to a blessed ORM story.</p>
+
+<pre><code>bun add drizzle-orm &amp;&amp; bun add -D drizzle-kit</code></pre>
+
+<div class="filename">src/lib/db.ts (Drizzle variant)</div>
+<pre><code>import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { DATABASE_URL } from 'astro:env/server';
+
+export const db = drizzle(neon(DATABASE_URL));</code></pre>
+
+<p>My honest read for this project: skip it. You have two tables and maybe three queries. Raw SQL in a tagged template is less code, less config, and nothing to learn. Reach for Drizzle if the schema grows past a handful of tables or you find yourself hand-writing migration ordering. Note that adding it later is cheap — the driver underneath is identical, so it's a swap of <code>db.ts</code> and your query call sites, not a rewrite.</p>
+
+<!-- ────────────────────────────────────────────── -->
+<h2 id="yourlist"><span class="num">13</span>Your implementation checklist</h2>
+
+<p>The plumbing above is mechanical. These are the parts that need your judgement:</p>
+
+<ul class="check">
+  <li><strong>Decide the invitation model.</strong> Open to anyone with the URL, or gated by an invite code? This determines whether you need the <code>parties</code> table, and it's hard to retrofit once guests have started responding.</li>
+  <li><strong>Decide the fields.</strong> Attending yes/no, headcount, meal choice, dietary restrictions, song requests, which events, a message to you. Every field is a chance for a guest to abandon the form — cut aggressively.</li>
+  <li><strong>Write the schema</strong> in <code>src/db/schema.sql</code> and apply it to a dev branch.</li>
+  <li><strong>Write the Zod input schema</strong> in the action. This is your validation layer; the handler should be able to trust its input completely.</li>
+  <li><strong>Write the insert query,</strong> with an <code>ON CONFLICT</code> clause if you chose upsert semantics.</li>
+  <li><strong>Build the form UI,</strong> deciding between a plain Astro form (works without JS) and a React island (better interactions).</li>
+  <li><strong>Handle the three states:</strong> empty form, validation errors rendered inline, and success. The success state is the one people forget — a guest who doesn't get clear confirmation will submit again.</li>
+  <li><strong>Build the admin view</strong> with a headcount and a CSV export. You will need the CSV for the caterer.</li>
+  <li><strong>Gate the admin view</strong> before it ever ships to production.</li>
+  <li><strong>Test the full path on a preview deploy</strong> before sending the link to anyone.</li>
+</ul>
+
+<footer>
+  <p>Written against Astro 7, <code>@neondatabase/serverless</code>, and the Neon Vercel Marketplace integration, current as of August 2026. Verified against the Astro v7 upgrade guide, the Astro 7 release notes, Astro's on-demand-rendering, Actions and environment-variables docs, Neon's Astro guide, the Neon serverless driver reference, and the Neon–Vercel integration docs.</p>
+  <p>The v7 upgrade notes document no changes to Actions, <code>astro:env</code>, API routes, or the static/<code>prerender</code> model, and the current docs confirm those behave as described here.</p>
+  <p>Repo context: <code>/home/jake/repos/wedding</code>, branch <code>astro-port</code>. Existing conventions this guide follows — <code>src/lib/*.ts</code> for server-only data modules, documented <code>.env.example</code> entries, log-and-return-safe error handling.</p>
+</footer>
+
+</div>
+</body>
+</html>
