@@ -1,0 +1,126 @@
+import { useRef, useState } from "react";
+// React 19 deprecated the recipe's `FormEvent` ("it doesn't actually exist")
+// in favour of the concrete DOM event types.
+import type { SubmitEvent } from "react";
+import SeatFields from "./SeatFields";
+import TextField from "./TextField";
+import {
+  buttonClass,
+  eyebrowClass,
+  helpTextClass,
+  serifClass,
+} from "./fieldStyles";
+
+const MAX_SEATS = 10;
+
+export default function RsvpForm() {
+  // Seats are tracked by stable id, never by array index: with index keys,
+  // removing a middle seat makes React reuse the wrong DOM node and the
+  // remaining (uncontrolled) inputs appear to shift their values up a row.
+  const [seatIds, setSeatIds] = useState<Array<number>>([0]);
+  // The seat that should take focus once rendered — set only by addSeat.
+  const [focusedSeatId, setFocusedSeatId] = useState<number | null>(null);
+  const [responseMessage, setResponseMessage] = useState("");
+  const [pending, setPending] = useState(false);
+
+  // A deterministic counter rather than crypto.randomUUID(): this component is
+  // server-rendered to HTML before it hydrates, and a random initial id would
+  // differ between those two passes and cause a hydration mismatch. It only
+  // advances on user interaction, which happens after hydration.
+  const nextId = useRef(1);
+
+  function addSeat() {
+    if (seatIds.length >= MAX_SEATS) return;
+    const id = nextId.current++;
+    setSeatIds((ids) => [...ids, id]);
+    setFocusedSeatId(id);
+  }
+
+  function removeSeat(id: number) {
+    // Never let the party drop to zero seats.
+    setSeatIds((ids) => (ids.length === 1 ? ids : ids.filter((x) => x !== id)));
+  }
+
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // Read the DOM before the first await — currentTarget is only valid
+    // during the synchronous part of the handler.
+    const formData = new FormData(event.currentTarget);
+    setPending(true);
+    try {
+      const response = await fetch("/api/rsvp", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      setResponseMessage(data.message ?? "");
+    } catch {
+      setResponseMessage("Something went wrong — please try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="bg-[#f4eadc] px-5 py-16 sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-6xl">
+        <header className="border-b border-[#221812]/15 pb-5">
+          <p className={eyebrowClass}>Invite</p>
+          <h2
+            className={`${serifClass} mt-2 text-5xl leading-none text-[#221812] sm:text-6xl`}
+          >
+            RSVP
+          </h2>
+        </header>
+
+        <form className="mt-8 max-w-2xl" onSubmit={submit}>
+          {/* One <li> per seat. Party size is the row count, never typed. */}
+          <ol className="grid gap-4">
+            {seatIds.map((id, index) => (
+              <SeatFields
+                key={id}
+                seatId={id}
+                position={index + 1}
+                claimFocus={id === focusedSeatId}
+                canRemove={seatIds.length > 1}
+                onRemove={() => removeSeat(id)}
+              />
+            ))}
+          </ol>
+
+          <button
+            type="button"
+            onClick={addSeat}
+            disabled={seatIds.length >= MAX_SEATS}
+            className={`${buttonClass} mt-4`}
+          >
+            + Add another name
+          </button>
+
+          <div className="mt-10 border-t border-[#221812]/15 pt-6">
+            <div className="max-w-sm">
+              <TextField
+                label="Email"
+                type="email"
+                name="email"
+                autoComplete="email"
+                required
+              />
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+              {/* Rendered even when empty: a live region has to be in the DOM
+                  before the text lands, or nothing is announced. */}
+              <p className={helpTextClass} aria-live="polite">
+                {responseMessage}
+              </p>
+              <button disabled={pending} className={`${buttonClass} ml-auto`}>
+                {pending ? "Sending…" : "Submit"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}

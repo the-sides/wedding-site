@@ -3,7 +3,7 @@ import type { Post } from "@/lib/notion";
 import Layout from "@/layouts/Layout.astro";
 import Hero from "@/components/Hero.astro";
 import Posts from "@/components/Posts.astro";
-import Form from "@/components/Form.tsx";
+import RsvpForm from "@/components/rsvp/RsvpForm.tsx";
 import { getPosts } from "@/lib/notion";
 
 // Runs at build time. A Notion outage or missing credentials degrades to a
@@ -21,7 +21,7 @@ try {
   <main class="min-h-screen overflow-x-hidden bg-[#f4eadc] text-[#221812]">
     <Hero />
 
-    <Form client:load />
+    <RsvpForm client:load />
 
     <Posts posts={posts} />
 
