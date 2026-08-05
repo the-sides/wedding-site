@@ -1,0 +1,123 @@
+---
+
+---
+<div class="mt-24 mx-auto max-w-6xl">
+  
+  <div
+    class="mb-8 flex items-end justify-between gap-6 border-b border-[#221812]/15 pb-5"
+  >
+    <div>
+      <p
+        class="font-['Avenir_Next','Gill_Sans',sans-serif] text-xs uppercase tracking-[0.26em] text-[#9b6e38]"
+      >
+        Invite
+      </p>
+      <h2
+        class="mt-2 font-['Bodoni_72','Didot','Baskerville',serif] text-5xl leading-none text-[#221812] sm:text-6xl"
+      >
+        RSVP
+      </h2>
+      {
+        /* <span class="font-['Avenir_Next','Gill_Sans',sans-serif] text-xs uppercase tracking-[0.22em] text-[#6f5a45]">
+              Jacob &amp; Vicki
+            </span> */
+      }
+      <form class="mt-4 grid grid-cols-2 justify-start gap-3" data-rsvp-form>
+        <!-- One <li> per seat. Cloned from the <template> below on demand. -->
+        <div class="">
+          <ol class="col-span-2 grid gap-3" data-seats>
+            <li>
+              <label>
+                Name:
+                <input class="ml-3 border rounded-xs border-[#b0aaa3] bg-[#fff8ee]/58" type="text" name="username" />
+              </label>
+              <button
+                type="button"
+                data-remove-seat
+                class="ml-2 text-xs uppercase tracking-[0.18em] text-[#6f5a45] disabled:invisible"
+                disabled>Remove</button
+              >
+            </li>
+          </ol>
+          <button
+            type="button"
+            data-add-seat
+            class="mt-4 col-span-2 justify-self-start hover:bg-[#bbb6af] border border-teal-900 pl-4 pr-4 text-left"
+          >
+            + Add another name
+          </button>
+        </div>
+        <label>
+          Email:
+          <input class="ml-3 border rounded-xs border-[#b0aaa3] bg-[#fff8ee]/58" type="email" name="email" />
+        </label>
+        <button class="ml-auto hover:bg-[#bbb6af] border text-left px-4 border-teal-900"> Submit </button>
+      </form>
+  
+      <!--
+        A <template> is inert: the browser parses it but never renders it, and
+        its inputs stay out of form submission and the accessibility tree until
+        cloned. Cheaper and safer than building HTML from a JS string.
+      -->
+      <template data-seat-template>
+        <li>
+          <label>
+            Name:
+            <input class="ml-3 bg-[#fff8ee]/58" type="text" name="username" />
+          </label>
+          <button
+            type="button"
+            data-remove-seat
+            class="ml-2 text-xs uppercase tracking-[0.18em] text-[#6f5a45] disabled:invisible"
+            >Remove</button
+          >
+        </li>
+      </template>
+    </div>
+  </div>
+</div>
+
+<script>
+  const MAX_SEATS = 10;
+
+  // Scoped per form, so the component stays safe to render more than once.
+  document.querySelectorAll<HTMLFormElement>("[data-rsvp-form]").forEach((form) => {
+    const seats = form.querySelector<HTMLOListElement>("[data-seats]")!;
+    const addButton = form.querySelector<HTMLButtonElement>("[data-add-seat]")!;
+    const template = form.parentElement!.querySelector<HTMLTemplateElement>(
+      "[data-seat-template]",
+    )!;
+
+    // The one place that derives UI state from the current DOM. Everything
+    // mutates rows and then calls this — the manual stand-in for a re-render.
+    function sync() {
+      const rows = Array.from(seats.children);
+      addButton.disabled = rows.length >= MAX_SEATS;
+      // Never let the party drop to zero seats.
+      for (const row of rows) {
+        row.querySelector<HTMLButtonElement>("[data-remove-seat]")!.disabled =
+          rows.length === 1;
+      }
+    }
+
+    addButton.addEventListener("click", () => {
+      if (seats.children.length >= MAX_SEATS) return;
+      const row = template.content.firstElementChild!.cloneNode(
+        true,
+      ) as HTMLElement;
+      seats.append(row);
+      row.querySelector("input")!.focus();
+      sync();
+    });
+
+    // Delegated: one listener covers rows that don't exist yet.
+    seats.addEventListener("click", (event) => {
+      const button = (event.target as HTMLElement).closest("[data-remove-seat]");
+      if (!button || seats.children.length === 1) return;
+      button.closest("li")!.remove();
+      sync();
+    });
+
+    sync();
+  });
+</script>
