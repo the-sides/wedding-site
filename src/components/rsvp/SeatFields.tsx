@@ -65,7 +65,7 @@ export default function SeatFields({
         </div>
 
         <ChoiceGroup legend="Will attend" name={`attending-${seatId}`} />
-        <ChoiceGroup legend="Requesting a +1" name={`plusOne-${seatId}`} />
+        <ChoiceGroup legend="Requesting a +1" plus1 name={`plusOne-${seatId}`} />
       </div>
     </li>
   );

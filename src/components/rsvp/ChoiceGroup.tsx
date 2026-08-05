@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { choiceClass, labelClass, radioClass } from "./fieldStyles";
+import TextField from "./TextField";
 
 const YES_NO = [
   { label: "Yes", value: "yes" },
@@ -9,14 +11,17 @@ type ChoiceGroupProps = {
   legend: string;
   /** Must be unique per group — radios sharing a name are one group. */
   name: string;
+  plus1?: boolean;
   options?: typeof YES_NO;
 };
 
 export default function ChoiceGroup({
   legend,
   name,
+  plus1 = false,
   options = YES_NO,
 }: ChoiceGroupProps) {
+  const [val, setVal] = useState('No')
   return (
     // <fieldset>/<legend> is what ties the question to its options for a
     // screen reader. A plain <p> beside the radios leaves them announced as
@@ -33,12 +38,17 @@ export default function ChoiceGroup({
               type="radio"
               name={name}
               value={option.value}
+              onChange={() => setVal(option.value)}
               required
             />
             {option.label}
           </label>
         ))}
       </div>
+      {plus1 && val == 'yes' && <div className="mt-3">
+        <TextField label={`${val}-plus1-name`}/>
+      </div>
+      }
     </fieldset>
   );
 }
