@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
-import ChoiceGroup from "./ChoiceGroup";
+import { useEffect, useRef, useState } from "react";
+import { seatField } from "@/lib/rsvp";
+import ChoiceGroup, { type Choice } from "./ChoiceGroup";
 import TextField from "./TextField";
 import { eyebrowClass, ghostButtonClass } from "./fieldStyles";
 
@@ -13,7 +14,7 @@ type SeatFieldsProps = {
   onRemove: () => void;
 };
 
-/** One seat in the party: a name plus the two questions asked about it. */
+/** One seat in the party: a name, plus whatever that name's answers open up. */
 export default function SeatFields({
   seatId,
   position,
@@ -22,6 +23,8 @@ export default function SeatFields({
   onRemove,
 }: SeatFieldsProps) {
   const nameInput = useRef<HTMLInputElement>(null);
+  const [attending, setAttending] = useState<Choice | null>(null);
+  const [plusOne, setPlusOne] = useState<Choice | null>(null);
 
   // Only a seat the guest just added claims focus. The first seat mounts
   // during hydration, where grabbing focus would also scroll the page down
@@ -30,15 +33,18 @@ export default function SeatFields({
     if (claimFocus) nameInput.current?.focus();
   }, [claimFocus]);
 
+  function answerAttending(value: Choice) {
+    setAttending(value);
+    // Someone who is not coming cannot bring anyone. Clearing the answer as
+    // well as hiding it keeps a stale "yes" from coming back if they change
+    // their mind twice.
+    if (value === "no") setPlusOne(null);
+  }
+
   return (
     <li className="border border-[#221812]/12 bg-[#fff8ee]/35 p-5 sm:p-6">
-      {/*
-        Field names are suffixed with the seat id for two reasons: it keeps
-        each seat's radios in their own group (same-name radios anywhere in a
-        form are one group), and it lets the API rebuild a seat from the flat
-        FormData. This hidden input is the list of ids to walk.
-      */}
-      <input type="hidden" name="seatId" value={seatId} />
+      {/* The id every field on this seat is namespaced with — see lib/rsvp. */}
+      <input type="hidden" name={seatField.id} value={seatId} />
 
       <div className="flex items-baseline justify-between gap-4">
         <span className={eyebrowClass}>Guest {position}</span>
@@ -58,14 +64,45 @@ export default function SeatFields({
             ref={nameInput}
             label="Full name"
             type="text"
-            name={`guest-${seatId}`}
+            name={seatField.name(seatId)}
             autoComplete="off"
             required
           />
         </div>
 
-        <ChoiceGroup legend="Will attend" name={`attending-${seatId}`} />
-        <ChoiceGroup legend="Requesting a +1" plus1 name={`plusOne-${seatId}`} />
+        <ChoiceGroup
+          legend="Will attend"
+          name={seatField.attending(seatId)}
+          value={attending}
+          onChange={answerAttending}
+        />
+
+        {/*
+          Each field below is unmounted rather than hidden when it stops
+          applying. An unmounted input is not in the form at all, so it drops
+          out of FormData and stops blocking submit with its own `required` —
+          the browser cannot demand a +1's name that nobody can see.
+        */}
+        {attending === "yes" && (
+          <ChoiceGroup
+            legend="Requesting a +1"
+            name={seatField.plusOne(seatId)}
+            value={plusOne}
+            onChange={setPlusOne}
+          />
+        )}
+
+        {attending === "yes" && plusOne === "yes" && (
+          <div className="sm:col-span-2">
+            <TextField
+              label="Plus one's name"
+              type="text"
+              name={seatField.plusOneName(seatId)}
+              autoComplete="off"
+              required
+            />
+          </div>
+        )}
       </div>
     </li>
   );

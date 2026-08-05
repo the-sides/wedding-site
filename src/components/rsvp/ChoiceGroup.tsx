@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { choiceClass, labelClass, radioClass } from "./fieldStyles";
-import TextField from "./TextField";
 
-const YES_NO = [
+export type Choice = "yes" | "no";
+
+const OPTIONS: Array<{ label: string; value: Choice }> = [
   { label: "Yes", value: "yes" },
   { label: "No", value: "no" },
 ];
@@ -11,17 +11,21 @@ type ChoiceGroupProps = {
   legend: string;
   /** Must be unique per group — radios sharing a name are one group. */
   name: string;
-  plus1?: boolean;
-  options?: typeof YES_NO;
+  value: Choice | null;
+  onChange: (value: Choice) => void;
 };
 
+/**
+ * A yes/no question. The radios are ordinary named inputs, so the answer
+ * still arrives in FormData on submit; `value` is lifted out so the seat can
+ * react to it and reveal the questions that only follow from a "yes".
+ */
 export default function ChoiceGroup({
   legend,
   name,
-  plus1 = false,
-  options = YES_NO,
+  value,
+  onChange,
 }: ChoiceGroupProps) {
-  const [val, setVal] = useState('No')
   return (
     // <fieldset>/<legend> is what ties the question to its options for a
     // screen reader. A plain <p> beside the radios leaves them announced as
@@ -29,7 +33,7 @@ export default function ChoiceGroup({
     <fieldset>
       <legend className={labelClass}>{legend}</legend>
       <div className="mt-2 flex items-center gap-6">
-        {options.map((option) => (
+        {OPTIONS.map((option) => (
           // The input sits inside the label, so the word is part of the hit
           // target rather than dead text next to it.
           <label key={option.value} className={choiceClass}>
@@ -38,17 +42,14 @@ export default function ChoiceGroup({
               type="radio"
               name={name}
               value={option.value}
-              onChange={() => setVal(option.value)}
+              checked={value === option.value}
+              onChange={() => onChange(option.value)}
               required
             />
             {option.label}
           </label>
         ))}
       </div>
-      {plus1 && val == 'yes' && <div className="mt-3">
-        <TextField label={`${val}-plus1-name`}/>
-      </div>
-      }
     </fieldset>
   );
 }

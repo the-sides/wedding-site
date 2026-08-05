@@ -36,6 +36,13 @@ export default defineConfig({
         access: "secret",
         optional: true,
       }),
+      // The RSVP Submissions inbox — a different data source from the posts
+      // one above, and the only database the public form can write to.
+      NOTION_RSVP_DATA_SOURCE_ID: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
       VERCEL_DEPLOY_HOOK: envField.string({
         context: "server",
         access: "secret",

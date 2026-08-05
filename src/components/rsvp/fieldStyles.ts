@@ -29,3 +29,6 @@ export const buttonClass = `${SANS} border border-teal-900 px-4 py-2 text-xs upp
 export const ghostButtonClass = `${SANS} text-[11px] uppercase tracking-[0.18em] text-[#6f5a45] underline-offset-4 transition hover:text-[#221812] hover:underline disabled:invisible`;
 
 export const helpTextClass = `${SANS} text-sm text-[#6f5a45]`;
+
+/** Same size and weight as help text — only the colour carries the alarm. */
+export const errorTextClass = `${SANS} text-sm text-[#9b3b2f]`;

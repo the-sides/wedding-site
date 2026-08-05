@@ -2,16 +2,18 @@ import { useRef, useState } from "react";
 // React 19 deprecated the recipe's `FormEvent` ("it doesn't actually exist")
 // in favour of the concrete DOM event types.
 import type { SubmitEvent } from "react";
+import { MAX_SEATS } from "@/lib/rsvp";
 import SeatFields from "./SeatFields";
 import TextField from "./TextField";
 import {
   buttonClass,
+  errorTextClass,
   eyebrowClass,
   helpTextClass,
   serifClass,
 } from "./fieldStyles";
 
-const MAX_SEATS = 10;
+type Reply = { ok: boolean; message: string };
 
 export default function RsvpForm() {
   // Seats are tracked by stable id, never by array index: with index keys,
@@ -20,7 +22,7 @@ export default function RsvpForm() {
   const [seatIds, setSeatIds] = useState<Array<number>>([0]);
   // The seat that should take focus once rendered — set only by addSeat.
   const [focusedSeatId, setFocusedSeatId] = useState<number | null>(null);
-  const [responseMessage, setResponseMessage] = useState("");
+  const [reply, setReply] = useState<Reply | null>(null);
   const [pending, setPending] = useState(false);
 
   // A deterministic counter rather than crypto.randomUUID(): this component is
@@ -53,9 +55,14 @@ export default function RsvpForm() {
         body: formData,
       });
       const data = await response.json();
-      setResponseMessage(data.message ?? "");
+      // A 400 carries a message worth showing verbatim — it names the guest
+      // whose answer is missing. Only the colour changes.
+      setReply({ ok: response.ok, message: data.message ?? "" });
     } catch {
-      setResponseMessage("Something went wrong — please try again.");
+      setReply({
+        ok: false,
+        message: "Something went wrong — please try again.",
+      });
     } finally {
       setPending(false);
     }
@@ -111,8 +118,11 @@ export default function RsvpForm() {
             <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
               {/* Rendered even when empty: a live region has to be in the DOM
                   before the text lands, or nothing is announced. */}
-              <p className={helpTextClass} aria-live="polite">
-                {responseMessage}
+              <p
+                className={reply && !reply.ok ? errorTextClass : helpTextClass}
+                aria-live="polite"
+              >
+                {reply?.message ?? ""}
               </p>
               <button disabled={pending} className={`${buttonClass} ml-auto`}>
                 {pending ? "Sending…" : "Submit"}

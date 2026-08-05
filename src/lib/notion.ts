@@ -3,7 +3,9 @@ import {
   NOTION_API_KEY,
   NOTION_DATABASE_ID,
   NOTION_DATA_SOURCE_ID,
+  NOTION_RSVP_DATA_SOURCE_ID,
 } from "astro:env/server";
+import type { Seat } from "./rsvp";
 import type {
   BlockObjectResponse,
   DataSourceObjectResponse,
@@ -17,6 +19,7 @@ const notion = new Client({
 
 const DATABASE_ID = NOTION_DATABASE_ID;
 const DATA_SOURCE_ID = NOTION_DATA_SOURCE_ID;
+const RSVP_DATA_SOURCE_ID = NOTION_RSVP_DATA_SOURCE_ID;
 
 type RichText = Array<RichTextItemResponse>;
 
@@ -324,6 +327,60 @@ function postFromPage(
       ) || excerptFromBlocks(blocks),
     blocks,
   };
+}
+
+export interface RsvpSubmission {
+  email: string;
+  seats: Array<Seat>;
+}
+
+/**
+ * Appends one row per seat to the RSVP Submissions inbox.
+ *
+ * Deliberately *not* the curated Wedding Guests list: these names were typed
+ * by whoever loaded the page, while a Guests row is a seat Jacob and Vicki
+ * decided to offer. Rows land with Triage = New and are matched to a real
+ * seat by hand through the "Matched guest" relation.
+ */
+export async function createRsvp({ email, seats }: RsvpSubmission) {
+  if (!RSVP_DATA_SOURCE_ID) {
+    throw new Error("NOTION_RSVP_DATA_SOURCE_ID is not configured");
+  }
+
+  // Every row from one POST carries the same id, so a party that replied
+  // together can be grouped again in Notion — the rows are otherwise
+  // indistinguishable from ten separate people replying at the same moment.
+  const submission = crypto.randomUUID();
+  const submittedAt = new Date().toISOString();
+  const pageIds: Array<string> = [];
+
+  // Sequential rather than Promise.all: Notion rate-limits to roughly three
+  // requests a second, and a full ten-seat party would burst past that.
+  for (const [index, seat] of seats.entries()) {
+    const page = await notion.pages.create({
+      parent: { type: "data_source_id", data_source_id: RSVP_DATA_SOURCE_ID },
+      properties: {
+        Name: { title: [{ text: { content: seat.name } }] },
+        Attending: { select: { name: seat.attending ? "Yes" : "No" } },
+        "Plus-one requested": { checkbox: seat.plusOne },
+        "Plus-one name": {
+          rich_text: seat.plusOneName
+            ? [{ text: { content: seat.plusOneName } }]
+            : [],
+        },
+        Email: { email },
+        // The order the guest listed their party in, which is meaningful:
+        // the first seat is usually the person replying.
+        Seat: { number: index + 1 },
+        Submission: { rich_text: [{ text: { content: submission } }] },
+        "Submitted at": { date: { start: submittedAt } },
+        Triage: { select: { name: "New" } },
+      },
+    });
+    pageIds.push(page.id);
+  }
+
+  return { submission, pageIds };
 }
 
 export async function getPosts(): Promise<Array<Post>> {
