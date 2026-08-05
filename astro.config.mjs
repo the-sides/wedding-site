@@ -4,6 +4,8 @@ import { defineConfig, envField } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 import vercel from "@astrojs/vercel";
 
+import react from "@astrojs/react";
+
 // https://astro.build/config
 export default defineConfig({
   // Pages are prerendered to static HTML at build time. The Notion webhook
@@ -45,4 +47,6 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
   },
+
+  integrations: [react()],
 });
