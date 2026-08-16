@@ -2,8 +2,8 @@
 import { navLinks } from "@/lib/nav";
 
 // The home page's only job below the hero: send guests to one of the four
-// pages. Each card is a single <a> so the whole tile is the hit target, which
-// matters more on a phone than the arrow glyph does.
+// pages. Four buttons across on anything wider than a phone, stacked full
+// width below that — nothing but the page names.
 ---
 
 <nav
@@ -12,35 +12,15 @@ import { navLinks } from "@/lib/nav";
   aria-label="Wedding pages"
 >
   <div class="mx-auto max-w-6xl">
-    <ul class="grid gap-6 sm:grid-cols-2">
+    <ul class="grid gap-4 sm:grid-cols-4">
       {
         navLinks.map((link) => (
           <li>
             <a
               href={link.href}
-              class="group flex h-full flex-col justify-between gap-6 border border-[#221812]/15 bg-[#fff8ee]/58 p-6 shadow-[0_18px_60px_rgba(54,38,22,0.08)] transition hover:border-[#9b6e38]/60 hover:bg-[#fff8ee] sm:p-8"
+              class="flex items-center justify-center border border-[#221812]/15 bg-[#fff8ee]/58 px-4 py-6 text-center font-['Bodoni_72','Didot','Baskerville',serif] text-3xl leading-none text-[#221812] transition hover:border-[#9b6e38]/60 hover:bg-[#fff8ee] hover:text-[#9b6e38] sm:py-8 lg:text-4xl"
             >
-              <div>
-                <p class="font-['Avenir_Next','Gill_Sans',sans-serif] text-xs uppercase tracking-[0.26em] text-[#9b6e38]">
-                  {link.eyebrow}
-                </p>
-                <h2 class="mt-2 font-['Bodoni_72','Didot','Baskerville',serif] text-5xl leading-none text-[#221812] sm:text-6xl">
-                  {link.label}
-                </h2>
-                <p class="mt-4 max-w-sm font-['Avenir_Next','Gill_Sans',sans-serif] text-sm leading-6 text-[#6f5a45]">
-                  {link.blurb}
-                </p>
-              </div>
-
-              <span
-                class="font-['Avenir_Next','Gill_Sans',sans-serif] text-xs uppercase tracking-[0.22em] text-[#6f5a45] transition group-hover:text-[#9b6e38]"
-                aria-hidden="true"
-              >
-                View
-                <span class="ml-2 inline-block transition group-hover:translate-x-1">
-                  &rarr;
-                </span>
-              </span>
+              {link.label}
             </a>
           </li>
         ))
