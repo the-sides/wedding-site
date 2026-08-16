@@ -10,8 +10,6 @@ export interface NavLink {
   label: string;
   /** The small gold all-caps line above the heading. */
   eyebrow: string;
-  /** One-line gloss, shown on the home page cards only. */
-  blurb: string;
 }
 
 export const navLinks: Array<NavLink> = [
@@ -19,25 +17,21 @@ export const navLinks: Array<NavLink> = [
     href: "/rsvp",
     label: "RSVP",
     eyebrow: "Invite",
-    blurb: "Let us know who's coming — one line per guest.",
   },
   {
     href: "/schedule",
     label: "Schedule",
     eyebrow: "The day",
-    blurb: "Ceremony and reception timing for October 30, 2027.",
   },
   {
     href: "/venue",
     label: "Venue",
     eyebrow: "The place",
-    blurb: "Where the day happens, and how to get there.",
   },
   {
     href: "/extras",
     label: "Extras",
     eyebrow: "Notes",
-    blurb: "Updates and everything else worth knowing.",
   },
 ];
 
