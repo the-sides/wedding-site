@@ -3,6 +3,7 @@ import type { Post } from "@/lib/notion";
 import Layout from "@/layouts/Layout.astro";
 import Hero from "@/components/Hero.astro";
 import Posts from "@/components/Posts.astro";
+import Schedule from "@/components/Schedule.astro";
 import RsvpForm from "@/components/rsvp/RsvpForm.tsx";
 import { getPosts } from "@/lib/notion";
 
@@ -22,6 +23,8 @@ try {
     <Hero />
 
     <RsvpForm client:load />
+
+    <Schedule />
 
     <Posts posts={posts} />
 
