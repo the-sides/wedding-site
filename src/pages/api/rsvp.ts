@@ -3,7 +3,7 @@
 export const prerender = false;
 
 import type { APIRoute } from "astro";
-import { MAX_SEATS, seatField, type Seat } from "@/lib/rsvp";
+import { MAX_SEATS, seatField, successMessage, type Seat } from "@/lib/rsvp";
 import { createRsvp } from "@/lib/notion";
 
 type SeatsResult =
@@ -108,12 +108,5 @@ export const POST: APIRoute = async ({ request }) => {
     return json("We couldn't save your reply — please try again.", 502);
   }
 
-  const attending = result.seats.filter((seat) => seat.attending).length;
-
-  return json(
-    attending === 0
-      ? "Thank you for letting us know — we'll miss you."
-      : `Thank you! ${attending} of ${result.seats.length} seat(s) saved.`,
-    200,
-  );
+  return json(successMessage(result.seats), 200);
 };
