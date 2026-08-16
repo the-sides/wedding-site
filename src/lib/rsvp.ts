@@ -57,6 +57,6 @@ export function successMessage(seats: ReadonlyArray<Seat>): string {
   const greeting = "Jacob and Vicki are pumped to have you!";
 
   return plusOne
-    ? `${greeting} Thank you, we'll get back to you regarding your request for a plus 1.`
+    ? `${greeting} We'll get back to you regarding your request for a plus 1.`
     : greeting;
 }
