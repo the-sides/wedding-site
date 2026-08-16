@@ -7,8 +7,6 @@
 
 const SANS = "font-['Avenir_Next','Gill_Sans',sans-serif]";
 
-export const serifClass = "font-['Bodoni_72','Didot','Baskerville',serif]";
-
 /** Small gold all-caps line above a heading. */
 export const eyebrowClass = `${SANS} text-xs uppercase tracking-[0.26em] text-[#9b6e38]`;
 

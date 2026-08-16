@@ -5,13 +5,7 @@ import type { SubmitEvent } from "react";
 import { MAX_SEATS } from "@/lib/rsvp";
 import SeatFields from "./SeatFields";
 import TextField from "./TextField";
-import {
-  buttonClass,
-  errorTextClass,
-  eyebrowClass,
-  helpTextClass,
-  serifClass,
-} from "./fieldStyles";
+import { buttonClass, errorTextClass, helpTextClass } from "./fieldStyles";
 
 type Reply = { ok: boolean; message: string };
 
@@ -68,69 +62,58 @@ export default function RsvpForm() {
     }
   }
 
+  // The page heading and chrome live in `src/pages/rsvp.astro` — this renders
+  // the form alone so the RSVP page looks like every other page.
   return (
-    <section className="bg-[#f4eadc] px-5 py-16 sm:px-8 lg:px-10">
-      <div className="mx-auto max-w-6xl">
-        <header className="border-b border-[#221812]/15 pb-5">
-          <p className={eyebrowClass}>Invite</p>
-          <h2
-            className={`${serifClass} mt-2 text-5xl leading-none text-[#221812] sm:text-6xl`}
-          >
-            RSVP
-          </h2>
-        </header>
+    <form className="max-w-2xl" onSubmit={submit}>
+      {/* One <li> per seat. Party size is the row count, never typed. */}
+      <ol className="grid gap-4">
+        {seatIds.map((id, index) => (
+          <SeatFields
+            key={id}
+            seatId={id}
+            position={index + 1}
+            claimFocus={id === focusedSeatId}
+            canRemove={seatIds.length > 1}
+            onRemove={() => removeSeat(id)}
+          />
+        ))}
+      </ol>
 
-        <form className="mt-8 max-w-2xl" onSubmit={submit}>
-          {/* One <li> per seat. Party size is the row count, never typed. */}
-          <ol className="grid gap-4">
-            {seatIds.map((id, index) => (
-              <SeatFields
-                key={id}
-                seatId={id}
-                position={index + 1}
-                claimFocus={id === focusedSeatId}
-                canRemove={seatIds.length > 1}
-                onRemove={() => removeSeat(id)}
-              />
-            ))}
-          </ol>
+      <button
+        type="button"
+        onClick={addSeat}
+        disabled={seatIds.length >= MAX_SEATS}
+        className={`${buttonClass} mt-4`}
+      >
+        + Add another name
+      </button>
 
-          <button
-            type="button"
-            onClick={addSeat}
-            disabled={seatIds.length >= MAX_SEATS}
-            className={`${buttonClass} mt-4`}
+      <div className="mt-10 border-t border-[#221812]/15 pt-6">
+        <div className="max-w-sm">
+          <TextField
+            label="Email"
+            type="email"
+            name="email"
+            autoComplete="email"
+            required
+          />
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+          {/* Rendered even when empty: a live region has to be in the DOM
+              before the text lands, or nothing is announced. */}
+          <p
+            className={reply && !reply.ok ? errorTextClass : helpTextClass}
+            aria-live="polite"
           >
-            + Add another name
+            {reply?.message ?? ""}
+          </p>
+          <button disabled={pending} className={`${buttonClass} ml-auto`}>
+            {pending ? "Sending…" : "Submit"}
           </button>
-
-          <div className="mt-10 border-t border-[#221812]/15 pt-6">
-            <div className="max-w-sm">
-              <TextField
-                label="Email"
-                type="email"
-                name="email"
-                autoComplete="email"
-                required
-              />
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-              {/* Rendered even when empty: a live region has to be in the DOM
-                  before the text lands, or nothing is announced. */}
-              <p
-                className={reply && !reply.ok ? errorTextClass : helpTextClass}
-                aria-live="polite"
-              >
-                {reply?.message ?? ""}
-              </p>
-              <button disabled={pending} className={`${buttonClass} ml-auto`}>
-                {pending ? "Sending…" : "Submit"}
-              </button>
-            </div>
-          </div>
-        </form>
+        </div>
       </div>
-    </section>
+    </form>
   );
 }

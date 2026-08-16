@@ -12,8 +12,8 @@ bun run dev
 
 Copy `.env.example` to `.env` and configure the Notion integration variables to
 load wedding posts. The variables are declared as a typed schema under `env` in
-`astro.config.mjs`; all are optional, so an unconfigured environment renders the
-hero without the updates section instead of failing.
+`astro.config.mjs`; all are optional, so an unconfigured environment renders an
+empty state on `/extras` instead of failing the build.
 
 ## Scripts
 
@@ -26,9 +26,10 @@ hero without the updates section instead of failing.
 
 ## How it renders
 
-Every page is prerendered to static HTML at build time and ships **no client
-JavaScript** — the site has no interactive components. Notion is queried during
-the build in `src/pages/index.astro`.
+Every page is prerendered to static HTML at build time. Only `/rsvp` ships
+client JavaScript — the RSVP form is a React island (`client:load`); every
+other page is plain HTML. Notion is queried during the build in
+`src/pages/extras.astro`.
 
 `src/pages/api/notion-webhook.ts` is the one exception: it sets
 `export const prerender = false`, so it deploys as a Vercel Function. Notion
@@ -37,17 +38,32 @@ and picks up the new content.
 
 ## Layout
 
+The home page is a signpost — hero plus four links — and each section it used
+to stack inline now has its own route.
+
 ```
 src/
-  pages/index.astro              page composition + build-time Notion fetch
+  pages/index.astro              hero + the four links
+  pages/rsvp.astro               the RSVP form
+  pages/schedule.astro           the day's timing
+  pages/venue.astro              where it happens
+  pages/extras.astro             updates + build-time Notion fetch
+  pages/api/rsvp.ts              form endpoint, writes to Notion
   pages/api/notion-webhook.ts    on-demand endpoint, triggers redeploys
   layouts/Layout.astro           <html> shell, meta tags, global styles
+  layouts/PageLayout.astro       interior page chrome — header, title, footer
+  lib/nav.ts                     the four links, shared by both navs
   components/Hero.astro          masthead
+  components/HomeNav.astro       the four link cards
+  components/SiteHeader.astro    interior page nav
+  components/SiteFooter.astro    closing band
+  components/ComingSoon.astro    placeholder card for undecided details
   components/Posts.astro         updates grid
   components/PostBody.astro      groups Notion list runs into <ul>/<ol>
   components/Block.astro         one Notion block
   components/RichText.astro      Notion rich text spans
   components/Annotations.astro   recursive bold/italic/link wrappers
+  components/rsvp/               the React form and its fields
   lib/notion.ts                  Notion client and response mapping
 ```
 

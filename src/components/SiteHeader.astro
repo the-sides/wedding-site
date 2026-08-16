@@ -1,0 +1,47 @@
+---
+import { navLinks, isCurrent } from "@/lib/nav";
+
+// The interior-page masthead. The home page doesn't render this — its hero
+// carries the monogram, and the four links get the full-width treatment below
+// it instead.
+const pathname = Astro.url.pathname;
+---
+
+<header
+  class="border-b border-[#221812]/15 bg-[#f4eadc] px-5 py-4 sm:px-8 lg:px-10"
+>
+  <div
+    class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 font-['Avenir_Next','Gill_Sans',sans-serif] text-xs uppercase tracking-[0.24em]"
+  >
+    <a
+      href="/"
+      class="leading-none text-[#221812] transition hover:text-[#9b6e38]"
+    >
+      J &amp; V
+    </a>
+
+    <nav aria-label="Wedding pages">
+      <ul class="flex flex-wrap items-center gap-x-5 gap-y-2">
+        {
+          navLinks.map((link) => {
+            const current = isCurrent(pathname, link.href);
+            return (
+              <li>
+                <a
+                  href={link.href}
+                  aria-current={current ? "page" : undefined}
+                  class:list={[
+                    "underline-offset-[6px] transition hover:text-[#221812] hover:underline",
+                    current ? "text-[#9b6e38] underline" : "text-[#6f5a45]",
+                  ]}
+                >
+                  {link.label}
+                </a>
+              </li>
+            );
+          })
+        }
+      </ul>
+    </nav>
+  </div>
+</header>
