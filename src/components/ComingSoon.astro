@@ -1,0 +1,28 @@
+---
+// The stand-in card for a page whose details aren't settled yet. It reserves
+// the slot so guests read "not decided" rather than "missing" — swap the page
+// body for the real content when it lands and delete the usage.
+interface Props {
+  /** The reassurance line under the big serif text. */
+  note: string;
+  /** The big serif text itself. */
+  heading?: string;
+}
+
+const { note, heading = "Coming soon" } = Astro.props;
+---
+
+<div
+  class="border border-[#221812]/15 bg-[#fff8ee]/58 px-6 py-12 text-center shadow-[0_18px_60px_rgba(54,38,22,0.08)] sm:px-8 sm:py-16"
+>
+  <p
+    class="font-['Bodoni_72','Didot','Baskerville',serif] text-4xl leading-none text-[#221812] sm:text-5xl"
+  >
+    {heading}
+  </p>
+  <p
+    class="mx-auto mt-4 max-w-md font-['Avenir_Next','Gill_Sans',sans-serif] text-sm leading-6 text-[#6f5a45]"
+  >
+    {note}
+  </p>
+</div>

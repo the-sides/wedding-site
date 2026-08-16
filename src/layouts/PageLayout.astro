@@ -1,0 +1,60 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+
+interface Props {
+  /** The page's <h1>, and the leading half of its <title>. */
+  title: string;
+  /** The small gold all-caps line above the heading. */
+  eyebrow: string;
+  /** Optional lead paragraph under the heading rule. */
+  intro?: string;
+  /** Meta description; falls back to Layout's site-wide default. */
+  description?: string;
+}
+
+const { title, eyebrow, intro, description } = Astro.props;
+
+// The outer <div> is a column flex so the footer sits at the bottom of short
+// pages (the venue and schedule placeholders) instead of floating mid-screen.
+---
+
+<Layout title={`${title} — Jacob & Vicki`} description={description}>
+  <div
+    class="flex min-h-screen flex-col overflow-x-hidden bg-[#f4eadc] text-[#221812]"
+  >
+    <SiteHeader />
+
+    <main class="flex-1 px-5 py-16 sm:px-8 lg:px-10">
+      <div class="mx-auto max-w-6xl">
+        <header class="border-b border-[#221812]/15 pb-5">
+          <p
+            class="font-['Avenir_Next','Gill_Sans',sans-serif] text-xs uppercase tracking-[0.26em] text-[#9b6e38]"
+          >
+            {eyebrow}
+          </p>
+          <h1
+            class="mt-2 font-['Bodoni_72','Didot','Baskerville',serif] text-5xl leading-none text-[#221812] sm:text-6xl"
+          >
+            {title}
+          </h1>
+        </header>
+
+        {
+          intro && (
+            <p class="mt-6 max-w-2xl font-['Avenir_Next','Gill_Sans',sans-serif] text-base leading-7 text-[#6f5a45]">
+              {intro}
+            </p>
+          )
+        }
+
+        <div class="mt-8">
+          <slot />
+        </div>
+      </div>
+    </main>
+
+    <SiteFooter />
+  </div>
+</Layout>

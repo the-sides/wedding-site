@@ -1,37 +1,19 @@
 ---
-import type { Post } from "@/lib/notion";
 import Layout from "@/layouts/Layout.astro";
 import Hero from "@/components/Hero.astro";
-import Posts from "@/components/Posts.astro";
-import Schedule from "@/components/Schedule.astro";
-import RsvpForm from "@/components/rsvp/RsvpForm.tsx";
-import { getPosts } from "@/lib/notion";
+import HomeNav from "@/components/HomeNav.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
 
-// Runs at build time. A Notion outage or missing credentials degrades to a
-// hero-only page rather than failing the build.
-let posts: Array<Post> = [];
-
-try {
-  posts = await getPosts();
-} catch (error) {
-  console.error("Failed to fetch wedding posts:", error);
-}
+// The home page is now a signpost: hero, then the four links. Each section it
+// used to stack inline lives at its own route under `src/pages/`.
 ---
 
 <Layout>
   <main class="min-h-screen overflow-x-hidden bg-[#f4eadc] text-[#221812]">
     <Hero />
 
-    <RsvpForm client:load />
+    <HomeNav />
 
-    <Schedule />
-
-    <Posts posts={posts} />
-
-    <section
-      class="grid min-h-[8svh] place-items-center border-t border-[#221812]/15 bg-[#f4eadc] px-5 py-4 font-['Avenir_Next','Gill_Sans',sans-serif] text-xs uppercase tracking-[0.24em] text-[#6f5a45]"
-    >
-      Jacob &amp; Vicki
-    </section>
+    <SiteFooter />
   </main>
 </Layout>
