@@ -1,14 +1,45 @@
 ---
 import PageLayout from "@/layouts/PageLayout.astro";
-import ComingSoon from "@/components/ComingSoon.astro";
+
+// Lifted from the "Hidden Springs" Extras post so the venue lives on its own
+// page instead of scrolling past in the updates feed.
+const venue = {
+  name: "Hidden Springs",
+  href: "https://hiddenspringsvenue.com/",
+};
 ---
 
 <PageLayout
   title="Venue"
   eyebrow="The place"
-  description="Where Jacob and Vicki are getting married."
+  description="Hidden Springs — where Jacob and Vicki are getting married."
 >
-  <ComingSoon
-    note="We haven't announced the location yet. Directions, parking, and places to stay will land here once it's booked."
-  />
+  <article
+    class="border border-[#221812]/15 bg-[#fff8ee]/58 p-5 shadow-[0_18px_60px_rgba(54,38,22,0.08)] sm:p-6"
+  >
+    <h2
+      class="font-['Bodoni_72','Didot','Baskerville',serif] text-4xl leading-none text-[#221812]"
+    >
+      {venue.name}
+    </h2>
+
+    <p
+      class="mt-4 max-w-2xl font-['Avenir_Next','Gill_Sans',sans-serif] text-base leading-7 text-[#6f5a45]"
+    >
+      We're particularly thrilled about the venue. We'll be there Friday through
+      Saturday, and there are cabins for the wedding party and for the bride's
+      and groom's families.
+    </p>
+
+    <p class="mt-5">
+      <a
+        href={venue.href}
+        target="_blank"
+        rel="noreferrer"
+        class="font-['Avenir_Next','Gill_Sans',sans-serif] text-xs uppercase tracking-[0.18em] text-[#9b6e38] underline underline-offset-[6px] transition hover:text-[#d7b46a]"
+      >
+        Visit Hidden Springs
+      </a>
+    </p>
+  </article>
 </PageLayout>
