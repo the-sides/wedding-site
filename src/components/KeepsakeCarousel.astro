@@ -1,0 +1,214 @@
+---
+// The hero's keepsake strip. It used to be a static row of three photos; now the
+// same slot shows the whole set drifting past on a loop.
+//
+// The marquee works by rendering the media list twice inside one flex track and
+// sliding it left by exactly one copy's width — `count * (tile + gap)`. When the
+// animation restarts, copy two's first tile is sitting where copy one's was, so
+// the seam is invisible. Everything is driven off the `--keepsake-*` custom
+// properties below, which keeps the travel distance and the visible width in
+// sync with the tile size automatically.
+
+type Keepsake =
+  | { type: "image"; src: string; alt: string }
+  | { type: "video"; src: string; poster: string; alt: string };
+
+const keepsakes: Keepsake[] = [
+  {
+    type: "image",
+    src: "/keepsakes/DSC02560.webp",
+    alt: "Jacob and Vicki sitting close together in a bookshelf-lined room",
+  },
+  {
+    type: "video",
+    src: "/keepsakes/PXL_20251227_045533606.mp4",
+    poster: "/keepsakes/PXL_20251227_045533606.poster.webp",
+    alt: "A short clip of Jacob and Vicki goofing around indoors",
+  },
+  {
+    type: "image",
+    src: "/keepsakes/PXL_20250607_172817374.MP.webp",
+    alt: "Jacob and Vicki on a bridge over the Chicago River",
+  },
+  {
+    type: "image",
+    src: "/keepsakes/DSC04957.ARW.webp",
+    alt: "Jacob and Vicki outdoors holding their cat between them",
+  },
+  {
+    type: "image",
+    src: "/keepsakes/PXL_20230513_195923428.webp",
+    alt: "Jacob and Vicki laughing under a patterned umbrella",
+  },
+  {
+    type: "image",
+    src: "/keepsakes/PXL_20251227_185602038.TS-000.webp",
+    alt: "Jacob and Vicki on a balcony overlooking Jackson Square in New Orleans",
+  },
+  {
+    type: "image",
+    src: "/keepsakes/DSC04946.ARW.webp",
+    alt: "Jacob and Vicki holding hands in an autumn field",
+  },
+  {
+    type: "image",
+    src: "/keepsakes/PXL_20250208_202110587.webp",
+    alt: "Jacob and Vicki grinning over a shared plate of food",
+  },
+  {
+    type: "image",
+    src: "/keepsakes/PXL_20230904_072117789.webp",
+    alt: "Jacob and Vicki dressed up for a night out, arms around each other",
+  },
+  {
+    type: "image",
+    src: "/keepsakes/PXL_20251227_042801044.NIGHT.webp",
+    alt: "Jacob and Vicki cheek to cheek on a night out",
+  },
+  {
+    type: "image",
+    src: "/keepsakes/Snapchat-1436688277.webp",
+    alt: "Jacob and Vicki in a hallway mirror selfie",
+  },
+  {
+    type: "image",
+    src: "/keepsakes/PXL_20240713_215047936.webp",
+    alt: "Jacob and Vicki talking over drinks, seen through a restaurant window",
+  },
+];
+
+// Two identical copies form the loop. The second is `aria-hidden` so screen
+// readers only ever meet the real set once, and it loads lazily — it points at
+// the same URLs as the first copy, so it comes straight from cache. The first
+// copy loads eagerly: it sits above the fold and the drift would otherwise
+// reveal tiles that had not started fetching yet.
+const copies = [
+  { key: "lead", hidden: false, loading: "eager" as const },
+  { key: "trail", hidden: true, loading: "lazy" as const },
+];
+---
+
+<div
+  class="keepsakes"
+  style={`--keepsake-count:${keepsakes.length}`}
+  aria-label="Photos of Jacob and Vicki"
+  role="group"
+>
+  <div class="keepsakes__track">
+    {
+      copies.map((copy) =>
+        keepsakes.map((item) =>
+          item.type === "video" ? (
+            <video
+              src={item.src}
+              poster={item.poster}
+              aria-label={copy.hidden ? undefined : item.alt}
+              aria-hidden={copy.hidden ? "true" : undefined}
+              autoplay
+              muted
+              loop
+              playsinline
+              preload="auto"
+              disablepictureinpicture
+              tabindex="-1"
+              class="keepsakes__tile"
+            />
+          ) : (
+            <img
+              src={item.src}
+              alt={copy.hidden ? "" : item.alt}
+              aria-hidden={copy.hidden ? "true" : undefined}
+              loading={copy.loading}
+              decoding="async"
+              width="600"
+              height="800"
+              class="keepsakes__tile"
+            />
+          )
+        )
+      )
+    }
+  </div>
+</div>
+
+<style>
+  .keepsakes {
+    /* 9rem is the width the three static photos used to render at: the old
+       `max-w-md` (28rem) row, minus two 0.5rem gaps, split three ways. Keeping
+       it means the strip reads at the same scale and only the window grows. */
+    --keepsake-tile: 9rem;
+    --keepsake-gap: 0.5rem;
+    --keepsake-step: calc(var(--keepsake-tile) + var(--keepsake-gap));
+    /* Seconds each tile spends crossing the window, so adding photos makes the
+       strip longer rather than faster. */
+    --keepsake-pace: 5s;
+
+    /* Three tiles across, the same 28rem window the static row occupied. The
+       width has to be a definite length rather than `min(100%, ...)`: the hero
+       column is `justify-self-end`, which sizes that grid item to max-content,
+       and a percentage width there makes it fall back to measuring the whole
+       track. `max-width` still narrows the window on small screens. */
+    width: calc(3 * var(--keepsake-tile) + 2 * var(--keepsake-gap));
+    max-width: 100%;
+    overflow: hidden;
+    /* The fade at both ends. `overflow: hidden` still does the layout
+       clipping; the mask only softens what gets painted. */
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      #000 14%,
+      #000 86%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      #000 14%,
+      #000 86%,
+      transparent 100%
+    );
+  }
+
+  .keepsakes__track {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--keepsake-gap);
+    width: max-content;
+    will-change: transform;
+    animation: keepsake-drift calc(var(--keepsake-count) * var(--keepsake-pace))
+      linear infinite;
+  }
+
+  .keepsakes__tile {
+    /* Sized explicitly rather than with `flex-basis` + `aspect-ratio`: inside a
+       `max-content` track those lose to the media's own 600x800 intrinsic size
+       and every tile renders full-bleed. A stated width and height also keep
+       the track exactly `count * step` wide, which the loop depends on. */
+    flex: none;
+    width: var(--keepsake-tile);
+    height: calc(var(--keepsake-tile) * 4 / 3);
+    object-fit: cover;
+    border: 1px solid rgb(255 248 238 / 0.45);
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.35);
+    background-color: rgb(34 24 18 / 0.4);
+  }
+
+  @keyframes keepsake-drift {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(
+        calc(-1 * var(--keepsake-count) * var(--keepsake-step)),
+        0,
+        0
+      );
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .keepsakes__track {
+      animation: none;
+    }
+  }
+</style>
