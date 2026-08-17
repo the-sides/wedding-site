@@ -3,21 +3,7 @@
 // page, so a guest landing on a tall phone screen can reach the RSVP without
 // scrolling past the hero first.
 import { navLinks } from "@/lib/nav";
-
-const keepsakePhotos = [
-  {
-    src: "/PXL_20251025_213818182.jpg",
-    alt: "Jacob and Vicki smiling in the mountains",
-  },
-  {
-    src: "/DSC03122.webp",
-    alt: "Vicki smiling near a framed painting",
-  },
-  {
-    src: "/IMG_4023.jpg",
-    alt: "Jacob and Vicki sitting together at a restaurant booth",
-  },
-];
+import KeepsakeCarousel from "@/components/KeepsakeCarousel.astro";
 ---
 
 <section
@@ -86,18 +72,19 @@ const keepsakePhotos = [
         </p>
       </div>
 
-      <div
-        class="grid max-w-md grid-cols-3 gap-2 justify-self-start lg:justify-self-end"
-      >
-        {
-          keepsakePhotos.map((photo) => (
-            <img
-              src={photo.src}
-              alt={photo.alt}
-              class="aspect-[3/4] min-w-0 border border-[#fff8ee]/45 object-cover shadow-2xl shadow-black/35"
-            />
-          ))
-        }
+      {/*
+        On wide screens the strip tucks into the hero's bottom-right corner:
+        `-mb-10` cancels the grid's bottom padding and `-mr-4` eats part of the
+        section gutter, so it reads as anchored to the corner rather than
+        floating beside the date. Both stay clear of the section's own padding,
+        so nothing is clipped by its `overflow-hidden`.
+
+        Below `lg` this stretches to the column on purpose — the carousel is
+        wider than a phone, and only a stretched item gives its `max-width:100%`
+        something definite to clamp to, which keeps the fade on the real edges.
+      */}
+      <div class="min-w-0 lg:-mr-4 lg:-mb-10 lg:justify-self-end">
+        <KeepsakeCarousel />
       </div>
     </div>
   </div>
