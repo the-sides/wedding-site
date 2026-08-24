@@ -75,6 +75,7 @@ export default function SeatFields({
           name={seatField.attending(seatId)}
           value={attending}
           onChange={answerAttending}
+          required
         />
 
         {/*
@@ -82,6 +83,13 @@ export default function SeatFields({
           applying. An unmounted input is not in the form at all, so it drops
           out of FormData and stops blocking submit with its own `required` —
           the browser cannot demand a +1's name that nobody can see.
+
+          The +1 question itself is optional even while it is on screen. Most
+          guests are not bringing anyone and never read it as a question they
+          owe an answer to, and an unanswered `required` radio group makes the
+          browser refuse to fire submit at all: the form goes quiet and the
+          Submit button looks broken. Leaving it blank means the same thing to
+          the API as answering "no" — see `readSeats` in api/rsvp.ts.
         */}
         {attending === "yes" && (
           <ChoiceGroup
