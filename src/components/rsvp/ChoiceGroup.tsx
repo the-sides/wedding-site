@@ -13,6 +13,14 @@ type ChoiceGroupProps = {
   name: string;
   value: Choice | null;
   onChange: (value: Choice) => void;
+  /**
+   * Whether the guest must answer before the form will submit. Opt-in, like
+   * the `required` attribute it maps to. Not every question here is one the
+   * guest owes us an answer to, and marking an optional one required is worse
+   * than it sounds: the browser refuses to fire `submit` at all, so the form
+   * goes silent rather than explaining itself.
+   */
+  required?: boolean;
 };
 
 /**
@@ -25,6 +33,7 @@ export default function ChoiceGroup({
   name,
   value,
   onChange,
+  required = false,
 }: ChoiceGroupProps) {
   return (
     // <fieldset>/<legend> is what ties the question to its options for a
@@ -44,7 +53,7 @@ export default function ChoiceGroup({
               value={option.value}
               checked={value === option.value}
               onChange={() => onChange(option.value)}
-              required
+              required={required}
             />
             {option.label}
           </label>
