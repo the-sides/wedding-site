@@ -4,6 +4,7 @@
 // scrolling past the hero first.
 import { navLinks } from "@/lib/nav";
 import KeepsakeCarousel from "@/components/KeepsakeCarousel.astro";
+import FallingLeaves from "@/components/FallingLeaves.astro";
 ---
 
 <section
@@ -23,6 +24,17 @@ import KeepsakeCarousel from "@/components/KeepsakeCarousel.astro";
     class="absolute inset-0 opacity-75 bg-[radial-gradient(circle_at_24%_28%,rgba(244,234,220,0.34),transparent_30%),linear-gradient(180deg,rgba(12,7,4,0.18),rgba(12,7,4,0.5))]"
   >
   </div>
+
+  {
+    /*
+    Sits with the other overlays in source order but paints above everything,
+    the `z-10` content included, so leaves pass in front of the names rather
+    than behind them. It fills this section because the section is the nearest
+    positioned ancestor, and it measures that same box to decide how far the
+    scroll fade has got.
+  */
+  }
+  <FallingLeaves />
 
   <div
     class="relative z-10 flex min-h-[calc(92svh-2.5rem)] flex-col justify-between text-[#fff8ee] sm:min-h-[calc(92svh-3.5rem)]"
@@ -72,7 +84,8 @@ import KeepsakeCarousel from "@/components/KeepsakeCarousel.astro";
         </p>
       </div>
 
-      {/*
+      {
+        /*
         On wide screens the strip tucks into the hero's bottom-right corner:
         `-mb-10` cancels the grid's bottom padding and `-mr-4` eats part of the
         section gutter, so it reads as anchored to the corner rather than
@@ -82,7 +95,8 @@ import KeepsakeCarousel from "@/components/KeepsakeCarousel.astro";
         Below `lg` this stretches to the column on purpose — the carousel is
         wider than a phone, and only a stretched item gives its `max-width:100%`
         something definite to clamp to, which keeps the fade on the real edges.
-      */}
+      */
+      }
       <div class="min-w-0 lg:-mr-4 lg:-mb-10 lg:justify-self-end">
         <KeepsakeCarousel />
       </div>

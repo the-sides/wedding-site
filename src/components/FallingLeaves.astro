@@ -1,0 +1,324 @@
+---
+/*
+ * A drift of autumn leaves over the hero. The wedding is October 30, so the
+ * palette is picked to sit alongside the gold (#d7b46a) the hero already uses
+ * rather than introduce a second accent that competes with it.
+ *
+ * The drift itself is pure CSS. Each leaf is a three-span nesting doll: the
+ * outer span falls, the middle one sways, the inner one tumbles. Splitting the
+ * three transforms across three elements is what makes the motion read as
+ * organic — each layer gets its own duration, so the combined path only
+ * repeats on the least common multiple of the three rather than on a tidy loop
+ * the eye can latch onto.
+ *
+ * The scroll fade is the one thing that needs JavaScript; it lives in the
+ * <script> at the bottom. Because the overlay is `position: absolute` with
+ * `inset: 0`, it fills — and the script measures — whatever positioned element
+ * it is dropped into, so render it as a direct child of the block it decorates.
+ */
+
+/*
+ * Tuned by eye against the hero photo. Around half the leaves are turned
+ * edge-on at any instant, so what actually reads on screen is closer to a
+ * dozen than to this number — at 18 the drift was easy to miss entirely.
+ */
+const LEAF_COUNT = 26;
+
+// Warm tones only. The hero photo runs dark on the left and bright on the
+// right, so each leaf also gets a thin darker outline below to hold its shape
+// against the light half rather than washing out into it.
+const TINTS = ["#c8672a", "#d79b3a", "#a8401f", "#d7b46a", "#b8763a"];
+
+/*
+ * Two silhouettes, drawn on the same 24x24 grid so one `--size` scales either.
+ * `veins` is a single path of disconnected subpaths — cheaper than separate
+ * elements, and it only really shows on the larger leaves.
+ *
+ * There was a maple here too. It rendered as an orange asterisk: at the sizes
+ * these actually draw at, the notches between its lobes fall below a pixel and
+ * close up. Anything spiky enough to read as a maple is too fine to survive
+ * the scale, so the set is the two shapes that do survive — one symmetric, one
+ * not — and the variety comes from size, tint and tumble instead.
+ */
+const SHAPES = [
+  {
+    // Pointed at both ends, like a birch or cherry leaf.
+    body: "M12 1.6C18.4 7 20.2 13.2 12 22.4 3.8 13.2 5.6 7 12 1.6Z",
+    veins:
+      "M12 3.6v17.2M12 9.4 7.8 6.8M12 9.4l4.2-2.6M12 14.6l-4.6-3.2M12 14.6l4.6-3.2",
+  },
+  {
+    // Asymmetric and curved — the one that reads as caught mid-flutter.
+    body: "M15.4 1.8C21.6 8.6 20 16.6 10.2 22.2 5.4 16.4 6.6 8 15.4 1.8Z",
+    veins:
+      "M14.6 3.6C9.4 9.4 8.8 15.4 10.6 20.6M11.5 8.2l4.4-1.4M10.6 13.4l5-2.4",
+  },
+];
+
+/*
+ * A deterministic 32-bit hash, not `Math.random()`. Astro prerenders this
+ * component at build time, so a random sky would be baked in fresh on every
+ * deploy — the same source would produce a different page each build, and any
+ * diff of the output would be pure noise. Seeding off the leaf index instead
+ * makes the scatter stable while still looking unplanned. `Math.imul` keeps
+ * every step in 32-bit integer space so the result cannot drift with the
+ * floating-point details of whichever Node version runs the build.
+ */
+function hash(index: number, salt: number) {
+  let h = Math.imul(index + 1, 374761393) ^ Math.imul(salt + 1, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+const between = (index: number, salt: number, min: number, max: number) =>
+  min + hash(index, salt) * (max - min);
+
+/*
+ * The order in which leaves claim size bands. Size is stratified rather than
+ * sampled, because this many draws from a hash reliably clump: sampling it
+ * freely put most of the leaves in the top third of the range with a hole
+ * through the middle, which flattens the near-to-far depth the alpha ramp
+ * below is built on. Sorting the indices by a hash shuffles the bands, so
+ * size does not climb left-to-right across the hero the way raw `index` would,
+ * and unlike a fixed stride it stays a true permutation at any LEAF_COUNT.
+ */
+const sizeBands = Array.from({ length: LEAF_COUNT }, (_, i) => i).sort(
+  (a, b) => hash(a, 13) - hash(b, 13),
+);
+
+const leaves = Array.from({ length: LEAF_COUNT }, (_, index) => {
+  // Curved toward the small end rather than spread evenly: more far leaves
+  // than near ones, which is both how depth actually reads and what keeps
+  // the drift from crowding the names.
+  const size = 12 + 18 * ((sizeBands[index] + 0.5) / LEAF_COUNT) ** 1.6;
+  const fall = between(index, 0, 11, 21);
+  const sway = between(index, 4, 3.2, 7.5);
+  const spin = between(index, 7, 5, 13);
+
+  return {
+    shape: SHAPES[Math.floor(hash(index, 10) * SHAPES.length)],
+    tint: TINTS[Math.floor(hash(index, 9) * TINTS.length)],
+    fallStyle: [
+      // Stratified rather than uniform: one leaf per vertical band with jitter
+      // inside it. Sampling x freely would leave visible clumps and bare
+      // stripes at this count.
+      `--x:${(((index + between(index, 1, 0.12, 0.88)) / LEAF_COUNT) * 100).toFixed(2)}%`,
+      `--size:${size.toFixed(1)}px`,
+      // Bigger leaves read as nearer the camera, so they carry more weight and
+      // the small ones recede. One number doing two jobs buys the depth.
+      `--alpha:${(0.45 + ((size - 12) / 17.5) * 0.43).toFixed(2)}`,
+      `--fall:${fall.toFixed(2)}s`,
+      // Negative, and spread across the whole fall, so the very first paint
+      // lands mid-drift instead of on an empty sky that fills in over 20s.
+      `--fall-delay:${(-between(index, 3, 0, fall)).toFixed(2)}s`,
+    ].join(";"),
+    swayStyle: [
+      `--drift:${between(index, 6, 18, 70).toFixed(1)}px`,
+      `--sway:${sway.toFixed(2)}s`,
+      `--sway-delay:${(-between(index, 5, 0, sway)).toFixed(2)}s`,
+    ].join(";"),
+    spinStyle: [
+      `--spin:${spin.toFixed(2)}s`,
+      `--spin-delay:${(-between(index, 8, 0, spin)).toFixed(2)}s`,
+      // A tilted, per-leaf rotation axis. Turning about Y takes the leaf
+      // edge-on so it briefly vanishes, which is what sells the tumble;
+      // turning about Z only spins it in place, always visible. Varying Z
+      // rather than pinning it low is what mixes the two — held at 0.25 every
+      // leaf was Y-dominant, so the whole drift thinned out on the same beat.
+      `--axis-x:${between(index, 11, -1, 1).toFixed(2)}`,
+      `--axis-y:${between(index, 12, 0.35, 1).toFixed(2)}`,
+      `--axis-z:${between(index, 14, 0.2, 1.15).toFixed(2)}`,
+    ].join(";"),
+  };
+});
+---
+
+<div class="leaves" data-hero-leaves aria-hidden="true">
+  {
+    leaves.map((leaf) => (
+      <span class="leaf" style={leaf.fallStyle}>
+        <span class="leaf__sway" style={leaf.swayStyle}>
+          <span class="leaf__spin" style={leaf.spinStyle}>
+            <svg class="leaf__glyph" viewBox="0 0 24 24">
+              <path
+                d={leaf.shape.body}
+                fill={leaf.tint}
+                stroke="rgb(58 28 10 / 0.38)"
+                stroke-width="0.7"
+              />
+              <path
+                d={leaf.shape.veins}
+                fill="none"
+                stroke="rgb(58 28 10 / 0.3)"
+                stroke-width="0.7"
+                stroke-linecap="round"
+              />
+            </svg>
+          </span>
+        </span>
+      </span>
+    ))
+  }
+</div>
+
+<style>
+  .leaves {
+    position: absolute;
+    inset: 0;
+    /* Above the hero's `z-10` content, so leaves pass in front of the names
+       rather than behind them. */
+    z-index: 20;
+    /* Decoration only — never let a drifting leaf swallow a tap on the nav. */
+    pointer-events: none;
+    /* The scroll fade writes `opacity` straight onto this element. Promoting
+       the drift to a single layer up front means that fade is a
+       compositor-only change: the leaves underneath are re-composited, never
+       re-painted. */
+    will-change: opacity;
+  }
+
+  .leaf {
+    position: absolute;
+    top: 0;
+    left: var(--x);
+    width: var(--size);
+    /* Full height on purpose, and the load-bearing trick here. A percentage
+       `translateY` resolves against the element's own height, so stretching
+       each leaf's track to the hero's height lets the fall be written as
+       -20% -> 115% and stay correct at every viewport size — no JS measuring
+       anything, no `vh` guess at how tall `min-h-[92svh]` actually came out.
+       The glyph itself sits at the top of this column. */
+    height: 100%;
+    animation: leaf-fall var(--fall) linear var(--fall-delay) infinite;
+  }
+
+  .leaf__sway,
+  .leaf__spin {
+    display: block;
+  }
+
+  .leaf__sway {
+    /* `alternate` rather than a full cycle: the leaf eases to a stop at each
+       edge and turns around, the way one actually loses and regains air. */
+    animation: leaf-sway var(--sway) ease-in-out var(--sway-delay) infinite
+      alternate;
+  }
+
+  .leaf__spin {
+    animation: leaf-tumble var(--spin) linear var(--spin-delay) infinite;
+  }
+
+  .leaf__glyph {
+    display: block;
+    width: var(--size);
+    height: var(--size);
+    opacity: var(--alpha);
+  }
+
+  @keyframes leaf-fall {
+    from {
+      transform: translate3d(0, -20%, 0);
+    }
+    to {
+      transform: translate3d(0, 115%, 0);
+    }
+  }
+
+  @keyframes leaf-sway {
+    from {
+      transform: translate3d(calc(var(--drift) / -2), 0, 0);
+    }
+    to {
+      transform: translate3d(calc(var(--drift) / 2), 0, 0);
+    }
+  }
+
+  @keyframes leaf-tumble {
+    from {
+      transform: perspective(420px)
+        rotate3d(var(--axis-x), var(--axis-y), var(--axis-z), 0deg);
+    }
+    to {
+      transform: perspective(420px)
+        rotate3d(var(--axis-x), var(--axis-y), var(--axis-z), 360deg);
+    }
+  }
+
+  /* Once the fade has finished there is nothing left to look at, so stop
+     paying for it — paused animations drop off the compositor's tick list
+     instead of running unseen for the rest of the page. Resuming picks up
+     mid-air where it left off, so scrolling back up has no visible jump. */
+  .leaves--idle {
+    /* Nothing left to fade, so hand the layer back rather than hold GPU
+       memory for the rest of the page. */
+    will-change: auto;
+  }
+
+  .leaves--idle .leaf,
+  .leaves--idle .leaf__sway,
+  .leaves--idle .leaf__spin {
+    animation-play-state: paused;
+  }
+
+  /* Frozen leaves would all sit stacked at the top edge looking like a bug,
+     and the whole thing is ornament, so drop it entirely. */
+  @media (prefers-reduced-motion: reduce) {
+    .leaves {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  // The leaves belong to the hero, so they leave with it.
+  document
+    .querySelectorAll<HTMLElement>("[data-hero-leaves]")
+    .forEach((leaves) => {
+      // Nothing is rendered under reduced motion, so there is nothing to fade.
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+      // The overlay is `inset: 0` inside this element, so it is by definition
+      // the box being decorated and the one whose scroll drives the fade.
+      const host = leaves.parentElement;
+      if (!host) return;
+
+      let queued = false;
+
+      const paint = () => {
+        queued = false;
+        const { top, height } = host.getBoundingClientRect();
+        // Measured every frame rather than cached on load: it costs one rect
+        // read, and it means resizes, orientation changes and late font swaps
+        // stay correct with no extra bookkeeping.
+        //
+        // The fade completes once 55% of the hero has scrolled off the top —
+        // roughly when the hero stops being the thing you are looking at,
+        // rather than when its last pixel finally clears the screen.
+        const progress =
+          height > 0 ? Math.min(1, Math.max(0, -top) / (height * 0.55)) : 1;
+
+        // Set on the element rather than through a custom property on purpose.
+        // A custom property change invalidates style for every element that
+        // inherits it — here the hundred-odd spans below — while an inline
+        // `opacity` touches one element and stays on the compositor.
+        leaves.style.opacity = String(1 - progress);
+        leaves.classList.toggle("leaves--idle", progress === 1);
+      };
+
+      // Arrow consts rather than declarations so `host` stays narrowed to
+      // non-null inside them; a hoisted `function` could in principle run
+      // before the guard above, so TypeScript widens it back.
+      const schedule = () => {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(paint);
+      };
+
+      addEventListener("scroll", schedule, { passive: true });
+      addEventListener("resize", schedule);
+
+      // Browsers restore scroll position on reload, so the first paint cannot
+      // assume it is starting from the top of the page.
+      paint();
+    });
+</script>
