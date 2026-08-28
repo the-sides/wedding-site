@@ -206,9 +206,8 @@ const copies = [
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .keepsakes__track {
-      animation: none;
-    }
-  }
+  /* Deliberately no `prefers-reduced-motion` opt-out. The strip is the only
+     route to nine of these twelve photos — `overflow: hidden` clips the rest —
+     so freezing the animation hid most of the content rather than calming it.
+     A private site for friends; the drift stays on for everyone. */
 </style>
