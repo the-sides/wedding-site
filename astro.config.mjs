@@ -43,6 +43,14 @@ export default defineConfig({
         access: "secret",
         optional: true,
       }),
+      // Injected automatically once a Blob store is linked to the project.
+      // Until then it is simply absent and RSVPs are backed up to the runtime
+      // logs alone — no infrastructure required for the code to be correct.
+      BLOB_READ_WRITE_TOKEN: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
       VERCEL_DEPLOY_HOOK: envField.string({
         context: "server",
         access: "secret",
