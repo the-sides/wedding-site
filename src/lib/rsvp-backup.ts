@@ -51,8 +51,10 @@ export async function backupRsvp(record: RsvpRecord): Promise<void> {
     return;
   }
 
+  const pathname = blobPath(record);
+
   try {
-    await put(blobPath(record), JSON.stringify(record, null, 2), {
+    await put(pathname, JSON.stringify(record, null, 2), {
       // Private, not public: these files carry guest names and email
       // addresses, and a public blob URL is guessable from the submission id.
       access: "private",
@@ -63,6 +65,9 @@ export async function backupRsvp(record: RsvpRecord): Promise<void> {
       addRandomSuffix: false,
     });
   } catch (error) {
-    console.error("Failed to back up RSVP to Blob:", error);
+    console.error(
+      `Failed to back up RSVP to Blob (submission=${record.submission}, path=${pathname}):`,
+      error,
+    );
   }
 }

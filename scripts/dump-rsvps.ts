@@ -76,8 +76,19 @@ do {
   }
 } while (cursor);
 
-// Timestamps lead the blob name, so listing comes back roughly in order; sort
-// anyway so the output does not depend on that.
+// Blob listing is roughly chronological, but sort by submittedAt so output is
+// stable and strictly time-ordered.
 const [header, ...body] = rows;
-console.log([header, ...body.sort()].join("\n"));
+const submittedAtFromRow = (row: string): string =>
+  row.match(/^"[^"]*","([^"]*)",/)?.[1] ?? "";
+console.log(
+  [
+    header,
+    ...body.sort(
+      (a, b) =>
+        submittedAtFromRow(a).localeCompare(submittedAtFromRow(b)) ||
+        a.localeCompare(b),
+    ),
+  ].join("\n"),
+);
 console.error(`${files} submissions, ${body.length} seats`);
