@@ -260,13 +260,9 @@ const leaves = Array.from({ length: LEAF_COUNT }, (_, index) => {
     animation-play-state: paused;
   }
 
-  /* Frozen leaves would all sit stacked at the top edge looking like a bug,
-     and the whole thing is ornament, so drop it entirely. */
-  @media (prefers-reduced-motion: reduce) {
-    .leaves {
-      display: none;
-    }
-  }
+  /* Deliberately no `prefers-reduced-motion` opt-out: this is a private site
+     for friends and the drift is the point. The scroll fade below still clears
+     the leaves off within a screen of scrolling, so they never follow you. */
 </style>
 
 <script>
@@ -274,9 +270,6 @@ const leaves = Array.from({ length: LEAF_COUNT }, (_, index) => {
   document
     .querySelectorAll<HTMLElement>("[data-hero-leaves]")
     .forEach((leaves) => {
-      // Nothing is rendered under reduced motion, so there is nothing to fade.
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
       // The overlay is `inset: 0` inside this element, so it is by definition
       // the box being decorated and the one whose scroll drives the fade.
       const host = leaves.parentElement;
