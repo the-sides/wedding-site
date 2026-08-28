@@ -24,6 +24,18 @@ export interface RsvpRecord {
 export const RSVP_BACKUP_PREFIX = "rsvps/";
 
 /**
+ * How long to wait on Blob before falling back to the log line alone.
+ *
+ * The SDK retries ten times with exponential backoff and no ceiling, so an
+ * unbounded write would hold the request open until the function is killed —
+ * and the Notion write that follows it would never run. That turns "Blob is
+ * down" into "the RSVP form is down", which is the exact trade this file
+ * refuses to make. An abort bails out of the retry loop rather than being
+ * retried, so the cost of a sick Blob store is five seconds and a log line.
+ */
+const BLOB_TIMEOUT_MS = 5_000;
+
+/**
  * One file per submission rather than appends to a shared log: Blob has no
  * atomic append, so two parties replying in the same second would race and
  * one would overwrite the other. The timestamp leads the name so listing the
@@ -35,9 +47,9 @@ function blobPath({ submittedAt, submission }: RsvpRecord): string {
 }
 
 /**
- * Archives a submission. Never throws: a backup that can take down the RSVP
- * form would be worse than no backup at all, and the console log below is
- * already a recoverable record on its own.
+ * Archives a submission. Never throws and never stalls: a backup that can
+ * take down the RSVP form would be worse than no backup at all, and the
+ * console log below is already a recoverable record on its own.
  */
 export async function backupRsvp(record: RsvpRecord): Promise<void> {
   // The full payload goes to the runtime log whether or not Blob is
@@ -63,6 +75,8 @@ export async function backupRsvp(record: RsvpRecord): Promise<void> {
       // Without this the path gains a random suffix and stops being
       // derivable from the submission id.
       addRandomSuffix: false,
+      // See BLOB_TIMEOUT_MS — the backup must not outlive the form.
+      abortSignal: AbortSignal.timeout(BLOB_TIMEOUT_MS),
     });
   } catch (error) {
     console.error(

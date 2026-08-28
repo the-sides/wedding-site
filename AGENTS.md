@@ -20,7 +20,8 @@ sinks, in order of durability:
 2. **Vercel Blob.** One private JSON file per submission under `rsvps/`, kept
    forever. Inactive until a Blob store is linked to the project, which
    injects `BLOB_READ_WRITE_TOKEN`; without it the code logs a warning and
-   carries on.
+   carries on. A write that stalls is abandoned after five seconds, so a Blob
+   outage costs the guest a pause rather than the whole submission.
 
 To read the archive back:
 
