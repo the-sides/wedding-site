@@ -47,6 +47,9 @@ export default function RsvpForm() {
       const response = await fetch("/api/rsvp", {
         method: "POST",
         body: formData,
+        // Marks this as the scripted path. A native form post sends
+        // `text/html` instead and gets a rendered page back rather than JSON.
+        headers: { accept: "application/json" },
       });
       const data = await response.json();
       // A 400 carries a message worth showing verbatim — it names the guest
@@ -65,7 +68,16 @@ export default function RsvpForm() {
   // The page heading and chrome live in `src/pages/rsvp.astro` — this renders
   // the form alone so the RSVP page looks like every other page.
   return (
-    <form className="max-w-2xl" onSubmit={submit}>
+    // `method`/`action` are the no-JS safety net, not decoration: this page is
+    // prerendered, so the HTML (with its `required` inputs and submit button)
+    // is usable before — or entirely without — hydration. Without them a
+    // submit in that window GETs the answers into the URL bar and drops them.
+    <form
+      className="max-w-2xl"
+      method="post"
+      action="/api/rsvp"
+      onSubmit={submit}
+    >
       {/* One <li> per seat. Party size is the row count, never typed. */}
       <ol className="grid gap-4">
         {seatIds.map((id, index) => (
