@@ -29,6 +29,23 @@ const imageUrl = Astro.site ? new URL(image, Astro.site).href : image;
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="generator" content={Astro.generator} />
+
+    <!--
+      Publishes the cookie banner's answer as an attribute so CSS can branch on
+      it. Inline and in the head on purpose: this has to run before first paint,
+      or Jacob's guests would get a frame of the still hero before it starts
+      moving. `is:inline` keeps Astro from bundling it into a deferred module,
+      which would defeat the whole point.
+    -->
+    <script is:inline>
+      try {
+        const allegiance = localStorage.getItem("wedding:allegiance");
+        if (allegiance)
+          document.documentElement.dataset.allegiance = allegiance;
+      } catch {
+        /* Private mode. Nobody is here for Jacob. */
+      }
+    </script>
   </head>
   <body class="dark">
     <slot />

@@ -443,6 +443,10 @@ const STORAGE_KEY = "wedding:allegiance";
       if (!choice) return;
 
       write(choice);
+      // Publish it for the CSS that branches on allegiance — the hero's layer
+      // rig reads this. Set here as well as in the head script so the choice
+      // takes effect on this page view, not only on the next one.
+      document.documentElement.dataset.allegiance = choice;
       banner.classList.remove("cookie--in");
       // Let the band finish sliding away before it stops being focusable —
       // matches the 420ms transition above.
