@@ -1,4 +1,9 @@
-import { Client } from "@notionhq/client";
+import {
+  APIErrorCode,
+  Client,
+  ClientErrorCode,
+  isNotionClientError,
+} from "@notionhq/client";
 import {
   NOTION_API_KEY,
   NOTION_DATABASE_ID,
@@ -335,12 +340,111 @@ export interface RsvpSubmission {
 }
 
 /**
+ * Thrown when a party was written to Notion in part. Carries enough to find
+ * the wreckage without guesswork: every row that did land shares this
+ * `submission` id, and `written` says how many of them to expect.
+ *
+ * This exists because a truncated party is otherwise invisible. The rows are
+ * field-for-field identical to a genuine smaller party — nothing on a row
+ * records how many people were meant to be on it — so three rows from a
+ * family of six read as a family of three, forever.
+ */
+export class PartialRsvpError extends Error {
+  readonly name = "PartialRsvpError";
+
+  constructor(
+    readonly submission: string,
+    readonly written: number,
+    readonly total: number,
+    options?: { cause?: unknown },
+  ) {
+    super(
+      `RSVP ${submission} was written in part: ${written} of ${total} seats reached Notion. ` +
+        `The rows carrying this submission id are that partial write.`,
+      options,
+    );
+  }
+}
+
+/**
+ * How many times one seat is attempted before the party is declared partial.
+ * Three covers a single transient blip without stranding the guest on a
+ * spinner: with the backoff below, the worst case adds roughly three seconds.
+ */
+const MAX_ATTEMPTS = 3;
+
+const RETRY_BASE_MS = 400;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Whether a failed write is worth repeating.
+ *
+ * The SDK will not do this for us. Its own `canRetry` gates retries behind
+ * `method === "get" || method === "delete"`, reasoning that a repeated POST
+ * might create the row twice — so a `pages.create` that meets a 500 comes
+ * back unretried, and a single blip truncates the party.
+ *
+ * We take the opposite trade, deliberately. A duplicate row is conspicuous in
+ * triage (same Submission id, same Seat ordinal) and takes one click to
+ * delete; a missing row looks exactly like a smaller party and nobody ever
+ * finds it. The duplicate is also only reachable when the write succeeded and
+ * the *response* was lost, which is rarer than the failures listed here.
+ */
+const RETRYABLE_CODES: ReadonlySet<string> = new Set([
+  APIErrorCode.RateLimited,
+  APIErrorCode.InternalServerError,
+  APIErrorCode.ServiceUnavailable,
+  APIErrorCode.ServiceOverload,
+  APIErrorCode.GatewayTimeout,
+  APIErrorCode.ConflictError,
+  ClientErrorCode.RequestTimeout,
+  ClientErrorCode.ResponseError,
+]);
+
+function isRetryable(error: unknown): boolean {
+  // A bare network failure never reached Notion's error format. It is also
+  // the most retryable thing there is, so it is not left to the set below.
+  if (!isNotionClientError(error)) return error instanceof TypeError;
+  return RETRYABLE_CODES.has(error.code);
+}
+
+/**
+ * Notion asks for a specific wait when it rate-limits. Honouring it is both
+ * faster and politer than guessing, so the header wins where it is present.
+ */
+function retryDelayMs(error: unknown, attempt: number): number {
+  // Typed loosely on purpose: only the rate-limited errors carry headers, and
+  // the SDK's header type is not worth importing to read one field.
+  const headers =
+    isNotionClientError(error) && "headers" in error
+      ? (error.headers as { get?(name: string): string | null } | undefined)
+      : undefined;
+
+  const retryAfter = Number(headers?.get?.("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return Math.min(retryAfter * 1000, 5000);
+  }
+
+  // Exponential: 400ms, then 800ms.
+  return RETRY_BASE_MS * 2 ** (attempt - 1);
+}
+
+/**
  * Appends one row per seat to the RSVP Submissions inbox.
  *
  * Deliberately *not* the curated Wedding Guests list: these names were typed
  * by whoever loaded the page, while a Guests row is a seat Jacob and Vicki
  * decided to offer. Rows land with Triage = New and are matched to a real
  * seat by hand through the "Matched guest" relation.
+ *
+ * Notion has no batch create and no transaction, so a party is written a seat
+ * at a time and can genuinely end up half-stored. Two things soften that: each
+ * seat is retried through a transient failure, and a party that still ends up
+ * short throws `PartialRsvpError` rather than a bare API error, so the log
+ * names the shortfall instead of only the cause.
  */
 export async function createRsvp({ email, seats }: RsvpSubmission) {
   if (!RSVP_DATA_SOURCE_ID) {
@@ -357,30 +461,90 @@ export async function createRsvp({ email, seats }: RsvpSubmission) {
   // Sequential rather than Promise.all: Notion rate-limits to roughly three
   // requests a second, and a full ten-seat party would burst past that.
   for (const [index, seat] of seats.entries()) {
-    const page = await notion.pages.create({
-      parent: { type: "data_source_id", data_source_id: RSVP_DATA_SOURCE_ID },
-      properties: {
-        Name: { title: [{ text: { content: seat.name } }] },
-        Attending: { select: { name: seat.attending ? "Yes" : "No" } },
-        "Plus-one requested": { checkbox: seat.plusOne },
-        "Plus-one name": {
-          rich_text: seat.plusOneName
-            ? [{ text: { content: seat.plusOneName } }]
-            : [],
-        },
-        Email: { email },
-        // The order the guest listed their party in, which is meaningful:
-        // the first seat is usually the person replying.
-        Seat: { number: index + 1 },
-        Submission: { rich_text: [{ text: { content: submission } }] },
-        "Submitted at": { date: { start: submittedAt } },
-        Triage: { select: { name: "New" } },
-      },
-    });
-    pageIds.push(page.id);
+    try {
+      const page = await createSeat({
+        dataSourceId: RSVP_DATA_SOURCE_ID,
+        seat,
+        index,
+        email,
+        submission,
+        submittedAt,
+      });
+      pageIds.push(page.id);
+    } catch (error) {
+      // Seat one failing means nothing was written: that is a clean failure
+      // and the original error describes it best. Anything later leaves rows
+      // behind, and the caller needs to be told that, not just why.
+      if (pageIds.length === 0) throw error;
+
+      throw new PartialRsvpError(submission, pageIds.length, seats.length, {
+        cause: error,
+      });
+    }
   }
 
   return { submission, pageIds };
+}
+
+/** One seat, attempted until Notion accepts it or stops being worth asking. */
+async function createSeat({
+  dataSourceId,
+  seat,
+  index,
+  email,
+  submission,
+  submittedAt,
+}: {
+  dataSourceId: string;
+  seat: Seat;
+  index: number;
+  email: string;
+  submission: string;
+  submittedAt: string;
+}) {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await notion.pages.create({
+        parent: { type: "data_source_id", data_source_id: dataSourceId },
+        properties: {
+          Name: { title: [{ text: { content: seat.name } }] },
+          Attending: { select: { name: seat.attending ? "Yes" : "No" } },
+          "Plus-one requested": { checkbox: seat.plusOne },
+          "Plus-one name": {
+            rich_text: seat.plusOneName
+              ? [{ text: { content: seat.plusOneName } }]
+              : [],
+          },
+          Email: { email },
+          // The order the guest listed their party in, which is meaningful:
+          // the first seat is usually the person replying.
+          Seat: { number: index + 1 },
+          Submission: { rich_text: [{ text: { content: submission } }] },
+          "Submitted at": { date: { start: submittedAt } },
+          Triage: { select: { name: "New" } },
+        },
+      });
+    } catch (error) {
+      lastError = error;
+
+      // A validation error, a bad key or a renamed column will fail exactly
+      // the same way on every attempt. Retrying those only makes the guest
+      // wait longer for the same answer.
+      if (!isRetryable(error) || attempt === MAX_ATTEMPTS) throw error;
+
+      const delay = retryDelayMs(error, attempt);
+      console.warn(
+        `Retrying seat ${index + 1} of RSVP ${submission} in ${delay}ms ` +
+          `(attempt ${attempt} of ${MAX_ATTEMPTS}):`,
+        error,
+      );
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
 }
 
 export async function getPosts(): Promise<Array<Post>> {
