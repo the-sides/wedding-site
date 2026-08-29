@@ -332,6 +332,16 @@ function postFromPage(
 export interface RsvpSubmission {
   email: string;
   seats: Array<Seat>;
+  /**
+   * Minted by the caller, not here. Every row from one POST carries the same
+   * id, so a party that replied together can be grouped again in Notion — the
+   * rows are otherwise indistinguishable from ten separate people replying at
+   * the same moment. The caller owns it because the backup written before
+   * this call has to carry the same id, or a half-written party could never
+   * be matched back to the answer the guest actually gave.
+   */
+  submission: string;
+  submittedAt: string;
 }
 
 /**
@@ -342,16 +352,16 @@ export interface RsvpSubmission {
  * decided to offer. Rows land with Triage = New and are matched to a real
  * seat by hand through the "Matched guest" relation.
  */
-export async function createRsvp({ email, seats }: RsvpSubmission) {
+export async function createRsvp({
+  email,
+  seats,
+  submission,
+  submittedAt,
+}: RsvpSubmission) {
   if (!RSVP_DATA_SOURCE_ID) {
     throw new Error("NOTION_RSVP_DATA_SOURCE_ID is not configured");
   }
 
-  // Every row from one POST carries the same id, so a party that replied
-  // together can be grouped again in Notion — the rows are otherwise
-  // indistinguishable from ten separate people replying at the same moment.
-  const submission = crypto.randomUUID();
-  const submittedAt = new Date().toISOString();
   const pageIds: Array<string> = [];
 
   // Sequential rather than Promise.all: Notion rate-limits to roughly three

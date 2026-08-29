@@ -1,0 +1,104 @@
+/*
+ * A second home for RSVPs, written before the Notion call so a guest's answer
+ * survives Notion being down, rate-limiting, renaming a property, or losing
+ * its API key.
+ *
+ * Deliberately dumb: no schema, no migrations, one immutable JSON file per
+ * submission. Recovery is `bun scripts/dump-rsvps.ts`, not new code written
+ * under pressure.
+ */
+
+import { put } from "@vercel/blob";
+import { BLOB_READ_WRITE_TOKEN, BLOB_STORE_ID } from "astro:env/server";
+import type { Seat } from "./rsvp";
+
+/** Everything the guest told us, plus what we need to match it up later. */
+export interface RsvpRecord {
+  /** Shared with the Notion rows from the same POST, so the two can be joined. */
+  submission: string;
+  submittedAt: string;
+  email: string;
+  seats: Array<Seat>;
+}
+
+export const RSVP_BACKUP_PREFIX = "rsvps/";
+
+/**
+ * How long to wait on Blob before falling back to the log line alone.
+ *
+ * The SDK retries ten times with exponential backoff and no ceiling, so an
+ * unbounded write would hold the request open until the function is killed —
+ * and the Notion write that follows it would never run. That turns "Blob is
+ * down" into "the RSVP form is down", which is the exact trade this file
+ * refuses to make. An abort bails out of the retry loop rather than being
+ * retried, so the cost of a sick Blob store is five seconds and a log line.
+ */
+const BLOB_TIMEOUT_MS = 5_000;
+
+/**
+ * One file per submission rather than appends to a shared log: Blob has no
+ * atomic append, so two parties replying in the same second would race and
+ * one would overwrite the other. The timestamp leads the name so listing the
+ * prefix comes back in chronological order.
+ */
+function blobPath({ submittedAt, submission }: RsvpRecord): string {
+  const stamp = submittedAt.replace(/[:.]/g, "-");
+  return `${RSVP_BACKUP_PREFIX}${stamp}-${submission}.json`;
+}
+
+/**
+ * Archives a submission. Never throws and never stalls: a backup that can
+ * take down the RSVP form would be worse than no backup at all, and the
+ * console log below is already a recoverable record on its own.
+ */
+export async function backupRsvp(record: RsvpRecord): Promise<void> {
+  // The full payload goes to the runtime log whether or not Blob is
+  // configured. Vercel only keeps these for a matter of days, but that covers
+  // the case this whole file exists for — noticing on Tuesday that Notion
+  // broke on Monday — with no infrastructure at all.
+  console.log("RSVP received", JSON.stringify(record));
+
+  // Two ways to be credentialed, and the store linked to this project uses
+  // the second, so the SDK — not this file — decides which applies:
+  //
+  //   1. `BLOB_READ_WRITE_TOKEN`, a long-lived token pasted in by hand.
+  //   2. An ambient OIDC token plus `BLOB_STORE_ID`, which is what linking a
+  //      Blob store to the project actually injects. No read-write token is
+  //      created, so gating on one here would skip every backup forever.
+  //
+  // `put` resolves those in that order on its own. All this checks is whether
+  // either is possible, so an unconfigured local run says so once instead of
+  // throwing on every submission.
+  if (!BLOB_READ_WRITE_TOKEN && !BLOB_STORE_ID) {
+    console.warn(
+      "No Blob credentials (BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN) — " +
+        "RSVP backed up to logs only",
+    );
+    return;
+  }
+
+  const pathname = blobPath(record);
+
+  try {
+    await put(pathname, JSON.stringify(record, null, 2), {
+      // Private, not public: these files carry guest names and email
+      // addresses, and a public blob URL is guessable from the submission id.
+      access: "private",
+      // Passed only when it exists. Setting it to undefined is not the same as
+      // omitting it to the SDK, and passing it unconditionally would override
+      // the OIDC path that this project actually runs on.
+      ...(BLOB_READ_WRITE_TOKEN ? { token: BLOB_READ_WRITE_TOKEN } : {}),
+      contentType: "application/json",
+      // Without this the path gains a random suffix and stops being
+      // derivable from the submission id.
+      addRandomSuffix: false,
+      // See BLOB_TIMEOUT_MS — the backup must not outlive the form.
+      abortSignal: AbortSignal.timeout(BLOB_TIMEOUT_MS),
+    });
+  } catch (error) {
+    console.error(
+      `Failed to back up RSVP to Blob (submission=${record.submission}, path=${pathname}):`,
+      error,
+    );
+  }
+}

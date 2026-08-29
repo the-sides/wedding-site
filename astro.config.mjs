@@ -43,6 +43,23 @@ export default defineConfig({
         access: "secret",
         optional: true,
       }),
+      // Injected automatically when a Blob store is linked to the project.
+      // This is the credential the linked store actually provides: the SDK
+      // pairs it with the ambient OIDC token, and no read-write token is
+      // created at all.
+      BLOB_STORE_ID: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
+      // The manual alternative — a long-lived token from the Blob dashboard.
+      // Not set by linking a store, so normally absent. Present only where
+      // OIDC is unavailable; when it is set the SDK prefers OIDC anyway.
+      BLOB_READ_WRITE_TOKEN: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
       VERCEL_DEPLOY_HOOK: envField.string({
         context: "server",
         access: "secret",
