@@ -1,5 +1,6 @@
 ---
 import "@/styles/global.css";
+import CookieBanner from "@/components/CookieBanner.astro";
 
 interface Props {
   title?: string;
@@ -31,5 +32,8 @@ const imageUrl = Astro.site ? new URL(image, Astro.site).href : image;
   </head>
   <body class="dark">
     <slot />
+
+    <!-- Site-wide, and last in the body so it layers over every page. -->
+    <CookieBanner />
   </body>
 </html>
