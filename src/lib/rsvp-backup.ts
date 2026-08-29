@@ -9,7 +9,7 @@
  */
 
 import { put } from "@vercel/blob";
-import { BLOB_READ_WRITE_TOKEN } from "astro:env/server";
+import { BLOB_READ_WRITE_TOKEN, BLOB_STORE_ID } from "astro:env/server";
 import type { Seat } from "./rsvp";
 
 /** Everything the guest told us, plus what we need to match it up later. */
@@ -58,8 +58,22 @@ export async function backupRsvp(record: RsvpRecord): Promise<void> {
   // broke on Monday — with no infrastructure at all.
   console.log("RSVP received", JSON.stringify(record));
 
-  if (!BLOB_READ_WRITE_TOKEN) {
-    console.warn("No BLOB_READ_WRITE_TOKEN — RSVP backed up to logs only");
+  // Two ways to be credentialed, and the store linked to this project uses
+  // the second, so the SDK — not this file — decides which applies:
+  //
+  //   1. `BLOB_READ_WRITE_TOKEN`, a long-lived token pasted in by hand.
+  //   2. An ambient OIDC token plus `BLOB_STORE_ID`, which is what linking a
+  //      Blob store to the project actually injects. No read-write token is
+  //      created, so gating on one here would skip every backup forever.
+  //
+  // `put` resolves those in that order on its own. All this checks is whether
+  // either is possible, so an unconfigured local run says so once instead of
+  // throwing on every submission.
+  if (!BLOB_READ_WRITE_TOKEN && !BLOB_STORE_ID) {
+    console.warn(
+      "No Blob credentials (BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN) — " +
+        "RSVP backed up to logs only",
+    );
     return;
   }
 
@@ -70,7 +84,10 @@ export async function backupRsvp(record: RsvpRecord): Promise<void> {
       // Private, not public: these files carry guest names and email
       // addresses, and a public blob URL is guessable from the submission id.
       access: "private",
-      token: BLOB_READ_WRITE_TOKEN,
+      // Passed only when it exists. Setting it to undefined is not the same as
+      // omitting it to the SDK, and passing it unconditionally would override
+      // the OIDC path that this project actually runs on.
+      ...(BLOB_READ_WRITE_TOKEN ? { token: BLOB_READ_WRITE_TOKEN } : {}),
       contentType: "application/json",
       // Without this the path gains a random suffix and stops being
       // derivable from the submission id.

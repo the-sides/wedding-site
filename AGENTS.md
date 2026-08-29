@@ -18,17 +18,26 @@ sinks, in order of durability:
    `RSVP received` — each line is the complete payload as JSON. Retention is
    only a few days.
 2. **Vercel Blob.** One private JSON file per submission under `rsvps/`, kept
-   forever. Inactive until a Blob store is linked to the project, which
-   injects `BLOB_READ_WRITE_TOKEN`; without it the code logs a warning and
-   carries on. A write that stalls is abandoned after five seconds, so a Blob
-   outage costs the guest a pause rather than the whole submission.
+   forever. Live in any deployed environment: linking a store injects
+   `BLOB_STORE_ID`, which the SDK pairs with Vercel's ambient OIDC token.
+   Note that **no `BLOB_READ_WRITE_TOKEN` is created** by linking a store —
+   code that requires one will silently never write. With no credentials at
+   all the backup logs a warning and carries on. A write that stalls is
+   abandoned after five seconds, so a Blob outage costs the guest a pause
+   rather than the whole submission.
 
 To read the archive back:
 
 ```
-vercel env pull            # for BLOB_READ_WRITE_TOKEN
-bun scripts/dump-rsvps.ts > rsvps.csv
+vercel env pull
+bun --env-file=.env.local scripts/dump-rsvps.ts > rsvps.csv
 ```
+
+`vercel env pull` mints a *development*-scoped OIDC token, and a store only
+honours the environments enabled for the project — so from a laptop this also
+needs either **Development** ticked under Project Settings → Secure Backend
+Access, or a `BLOB_READ_WRITE_TOKEN` created by hand in the Blob dashboard.
+Neither is needed where Vercel supplies its own OIDC token.
 
 The `submission` id is shared by the backup and the Notion rows from the same
 POST, so a party half-written to Notion can be reconciled against the backup.
