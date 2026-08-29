@@ -74,10 +74,76 @@ function readSeats(data: FormData): SeatsResult {
   return { ok: true, seats };
 }
 
-function json(message: string, status: number) {
-  return new Response(JSON.stringify({ message }), {
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+/**
+ * The page a guest sees when they posted without JavaScript. It is written out
+ * by hand rather than rendered through the layout because this route is a
+ * function, not a page — and because a reply that reached the server should
+ * never depend on anything else still working.
+ */
+function page(message: string, ok: boolean): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${ok ? "Thank you" : "We could not save that"} — Jacob &amp; Vicki</title>
+    <style>
+      body { margin: 0; background: #f4eadc; color: #221812;
+             font-family: "Avenir Next", "Gill Sans", sans-serif; }
+      main { max-width: 34rem; margin: 0 auto; padding: 5rem 1.5rem; }
+      .eyebrow { font-size: 0.75rem; letter-spacing: 0.26em; text-transform: uppercase;
+                 color: #9b6e38; margin: 0; }
+      h1 { font-family: "Bodoni 72", Didot, Baskerville, serif; font-size: 3rem;
+           line-height: 1.05; font-weight: 400; margin: 0.5rem 0 0; }
+      p.message { font-size: 1rem; line-height: 1.75; color: ${ok ? "#6f5a45" : "#9b3b2f"};
+                  margin-top: 1.5rem; }
+      a { display: inline-block; margin-top: 2.5rem; padding: 0.5rem 1rem;
+          border: 1px solid #134e4a; color: #221812; text-decoration: none;
+          font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">RSVP</p>
+      <h1>${ok ? "Thank you" : "Not quite"}</h1>
+      <p class="message">${escapeHtml(message)}</p>
+      <a href="/rsvp">${ok ? "Back to the site" : "Back to the form"}</a>
+    </main>
+  </body>
+</html>`;
+}
+
+/**
+ * Answers in whatever the caller asked for. The scripted form sends
+ * `accept: application/json` and renders the message in place; a native POST —
+ * the path taken when the JS bundle never arrived — accepts `text/html` and
+ * gets a real page, because a browser staring at a raw JSON body reads as a
+ * site that ate your reply.
+ */
+function respond(request: Request, message: string, status: number) {
+  const accept = request.headers.get("accept") ?? "";
+
+  if (accept.includes("application/json")) {
+    return new Response(JSON.stringify({ message }), {
+      status,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  return new Response(page(message, status === 200), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+    },
   });
 }
 
@@ -86,12 +152,12 @@ export const POST: APIRoute = async ({ request }) => {
 
   const email = text(data, "email");
   if (!email) {
-    return json("Please add an email so we can reach you.", 400);
+    return respond(request, "Please add an email so we can reach you.", 400);
   }
 
   const result = readSeats(data);
   if (!result.ok) {
-    return json(result.message, 400);
+    return respond(request, result.message, 400);
   }
 
   try {
@@ -105,8 +171,12 @@ export const POST: APIRoute = async ({ request }) => {
     // Tell the guest the truth. A cheerful "Thank you!" over a failed write
     // is the one outcome we cannot recover from — they would never resend.
     console.error("Failed to save RSVP to Notion:", error);
-    return json("We couldn't save your reply — please try again.", 502);
+    return respond(
+      request,
+      "We couldn't save your reply — please try again.",
+      502,
+    );
   }
 
-  return json(successMessage(result.seats), 200);
+  return respond(request, successMessage(result.seats), 200);
 };
