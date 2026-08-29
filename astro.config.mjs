@@ -60,6 +60,22 @@ export default defineConfig({
         access: "secret",
         optional: true,
       }),
+      // A Discord incoming webhook URL. It is bound to one channel by
+      // Discord, so the channel an RSVP lands in is chosen when the URL is
+      // created rather than anywhere in this repo. Absent means no pings.
+      DISCORD_RSVP_WEBHOOK_URL: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
+      // Optional text prepended to each ping, for an actual notification
+      // rather than a quiet message — e.g. `<@&123...>` for a role or
+      // `<@123...>` for a person. @everyone is deliberately not honoured.
+      DISCORD_RSVP_MENTION: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
       VERCEL_DEPLOY_HOOK: envField.string({
         context: "server",
         access: "secret",
