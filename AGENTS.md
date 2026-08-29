@@ -8,6 +8,41 @@ astro dev --background
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 
+## Hero artwork
+
+The hero backdrop is not a flat photo. `art/walking.xcf` is a layered GIMP
+file — a backdrop plus Jacob's head and jaw as separate cutouts — and
+
+```
+bun scripts/import-xcf.ts art/walking.xcf
+```
+
+slices it into `public/hero/*` and regenerates `src/lib/hero-layers.ts`. Both
+outputs are generated; edit the `.xcf` and re-run rather than touching them.
+Commit the regenerated files alongside the art.
+
+`Hero.astro` stacks the layers back up over one canvas box scaled to cover the
+section, so each layer can be moved on its own — see the CSS at the bottom of
+that file for the hooks (`--dx`, `--dy`, `--rotate`, `--pivot`) and for the
+puppet rules gated on `[data-allegiance="jacob"]`.
+
+Two things to know before moving a layer far:
+
+- **Lifting a piece out leaves a white hole behind it.** The backdrop has a
+  head-shaped hole, and the head layer has a jaw-shaped one. Each cutout is
+  therefore rendered twice — once blacked out and pinned at rest as a
+  "socket", once live — so a moving layer reveals shadow rather than paper.
+  Painting real content into those holes in GIMP is what would allow large
+  movement; until then the socket is what makes any movement survivable.
+
+- **The layer name is the contract.** A layer called `jaw` becomes
+  `public/hero/jaw.png` with the slug `jaw`, which is what the CSS selects on.
+  Renaming a layer in GIMP renames its asset and breaks any rule targeting the
+  old name.
+
+The import needs GIMP 3 on PATH (`gimp-console`). It is a build-time tool
+only — nothing at runtime depends on it.
+
 ## RSVP backups
 
 Every submission is archived by `src/lib/rsvp-backup.ts` _before_ the Notion

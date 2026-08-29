@@ -5,17 +5,74 @@
 import { navLinks } from "@/lib/nav";
 import KeepsakeCarousel from "@/components/KeepsakeCarousel.astro";
 import FallingLeaves from "@/components/FallingLeaves.astro";
+import { HERO_CANVAS, HERO_LAYERS } from "@/lib/hero-layers";
+
+/*
+ * The backdrop is no longer one flat photo — it is the layers of
+ * `art/walking.xcf`, stacked back up in the browser. Both files are generated
+ * by `bun scripts/import-xcf.ts`; see that script for the pipeline.
+ *
+ * Everything hangs off `.hero-canvas`, a box pinned to the GIMP canvas's
+ * aspect ratio and scaled to cover the section. Because every layer is
+ * positioned in percentages of that one box, they stay in register with each
+ * other at any viewport size — and each can be moved on its own without
+ * disturbing the rest. That is the whole point of the split.
+ */
+const canvasRatio = `${HERO_CANVAS.width} / ${HERO_CANVAS.height}`;
 ---
 
 <section
   class="relative min-h-[92svh] overflow-hidden px-5 py-5 sm:px-8 sm:py-7 lg:px-10"
   aria-label="Jacob and Vicki wedding hero"
 >
-  <img
-    src="/walking.jpg"
-    alt="Jacob and Vicki under string lights"
-    class="absolute inset-0 h-full w-full object-cover object-[62%_50%]"
-  />
+  <div class="hero-canvas" style={`--canvas-ratio:${canvasRatio}`}>
+    {
+      /*
+       * Only the backdrop carries the alt text. The cutouts are pieces of that
+       * same photograph lying on top of it, so describing each one would have
+       * a screen reader announce Jacob's head twice more.
+       */
+      HERO_LAYERS.map((layer, index) => {
+        const geometry = `--left:${layer.left};--top:${layer.top};--width:${layer.width}`;
+        return (
+          <>
+            {/*
+              Lifting a piece out in GIMP leaves a hole behind it, and the hole
+              is filled with white — so the moment a layer moves, white shows
+              through from underneath. This is a second, blacked-out copy of
+              the same file, pinned at the layer's rest position and never
+              animated. Its silhouette is by definition exactly the hole's
+              shape, so at rest the live layer covers it perfectly and it is
+              invisible; as the layer swings away, what appears in the gap is
+              shadow instead of paper.
+
+              It costs no extra download — same URL, so the browser serves the
+              second <img> from cache — and no art changes, which matters
+              because the artwork is regenerated from the .xcf.
+            */}
+            {index > 0 && (
+              <img
+                src={layer.src}
+                alt=""
+                aria-hidden="true"
+                class:list={["hero-layer", "hero-layer--socket"]}
+                style={geometry}
+                draggable="false"
+              />
+            )}
+            <img
+              src={layer.src}
+              alt={index === 0 ? "Jacob and Vicki walking under the trees" : ""}
+              aria-hidden={index === 0 ? undefined : "true"}
+              class:list={["hero-layer", `hero-layer--${layer.slug}`]}
+              style={geometry}
+              draggable="false"
+            />
+          </>
+        );
+      })
+    }
+  </div>
   <div
     class="absolute inset-0 opacity-75 bg-[linear-gradient(90deg,rgba(21,13,8,0.78)_0%,rgba(21,13,8,0.48)_42%,rgba(21,13,8,0.08)_100%)]"
   >
@@ -103,3 +160,153 @@ import FallingLeaves from "@/components/FallingLeaves.astro";
     </div>
   </div>
 </section>
+
+<style>
+  /*
+   * `object-fit: cover` on a single <img>, rebuilt for a box with children.
+   * The layers have to share one coordinate space or they drift apart as the
+   * viewport changes, so the cropping has to happen to the whole stack at
+   * once rather than to each image.
+   *
+   * The cover itself falls out of `aspect-ratio` plus both minimums: the box
+   * grows until it is at least as wide *and* at least as tall as the section,
+   * and the ratio forces the other axis to follow. Whichever minimum binds
+   * last is the one that overflows, which is exactly what cover means.
+   */
+  .hero-canvas {
+    position: absolute;
+    aspect-ratio: var(--canvas-ratio);
+    min-width: 100%;
+    min-height: 100%;
+    width: auto;
+    height: auto;
+
+    /*
+     * The old markup framed this photo with `object-position: 62% 50%`, which
+     * keeps the couple off-centre and leaves the left third dark enough for
+     * the names to sit on. Same rule restated: put the box's 62% mark on the
+     * section's 62% mark, then pull it back by 62% of its own width.
+     */
+    top: 50%;
+    left: 62%;
+    translate: -62% -50%;
+  }
+
+  .hero-layer {
+    position: absolute;
+    left: var(--left);
+    top: var(--top);
+    width: var(--width);
+    /* Width alone drives the size; height follows the file's own ratio, so a
+       re-import at a different resolution needs no change here. */
+    height: auto;
+
+    /*
+     * The movable part, and the reason any of this exists. Each layer reads
+     * its own offset, rotation and pivot from custom properties that default
+     * to a no-op, so a rule as small as
+     *
+     *   .hero-layer--jaw { --rotate: 9deg; --pivot: 82% 8%; }
+     *
+     * hinges the jaw and touches nothing else. `translate` and `rotate` are
+     * separate properties rather than one `transform`, so a rule can set one
+     * without restating the other — and an animation can drive one while CSS
+     * holds the other.
+     */
+    translate: var(--dx, 0) var(--dy, 0);
+    rotate: var(--rotate, 0deg);
+    transform-origin: var(--pivot, 50% 50%);
+  }
+
+  /*
+   * Black, but not quite opaque — a pure void reads as a hole punched in the
+   * photo, whereas a little of the white beneath coming through reads as
+   * shadow inside a mouth.
+   */
+  .hero-layer--socket {
+    filter: brightness(0);
+    opacity: 0.86;
+  }
+
+  /*
+   * The backdrop is the full canvas, so it defines the box rather than
+   * floating inside it. Static positioning also makes it the one layer that
+   * contributes height, which is what gives `aspect-ratio` something to
+   * agree with if the ratio and the file ever disagree.
+   */
+  .hero-layer--walking {
+    position: static;
+    width: 100%;
+    display: block;
+  }
+
+  /*
+   * ---------------------------------------------------------------------
+   * The puppet, for Jacob's guests only.
+   *
+   * `data-allegiance` is set on <html> before first paint by the inline
+   * script in `Layout.astro`, from the same answer the cookie banner stores.
+   * Vicki's guests, and anyone who hit the (x), never match this selector and
+   * get the photograph exactly as it was shot.
+   * ---------------------------------------------------------------------
+   */
+
+  /*
+   * The pivot is the jaw hinge, which sits up by the ear — outside this
+   * layer's own box entirely, hence the out-of-range percentages. The chin is
+   * about 150 canvas pixels forward of the hinge, so that long lever turns a
+   * few degrees of rotation into a chin drop you can actually read at hero
+   * scale. Rotating negative swings the chin down and away from the hinge;
+   * positive would clamp it up through the top lip.
+   */
+  :root[data-allegiance="jacob"] .hero-layer--jaw {
+    --pivot: 179% -66%;
+    animation: jaw-flap 380ms ease-in-out infinite alternate;
+  }
+
+  @keyframes jaw-flap {
+    from {
+      rotate: 0deg;
+    }
+    to {
+      rotate: -11deg;
+    }
+  }
+
+  /*
+   * The head bob is deliberately tiny, and the reason is in the artwork: the
+   * backdrop has a head-shaped white hole punched through it where this layer
+   * was lifted out. Nothing plausible is painted behind the head, so every
+   * pixel the head travels uncovers white. A ~1% drift is under the feathered
+   * edge of the cutout and stays hidden.
+   *
+   * To let the head really move, fill that hole in `art/walking.xcf` — clone
+   * or heal the trees and shirt across it on the backdrop layer — and re-run
+   * `bun scripts/import-xcf.ts`. The numbers here are the only thing that
+   * would need raising; nothing else in the pipeline cares.
+   */
+  :root[data-allegiance="jacob"] .hero-layer--head {
+    animation: head-bob 760ms ease-in-out infinite alternate;
+  }
+
+  @keyframes head-bob {
+    from {
+      translate: 0 0;
+    }
+    to {
+      translate: 0 0.9%;
+    }
+  }
+
+  /*
+   * An endless chattering jaw is exactly the kind of persistent, repetitive
+   * motion the preference exists to stop. The rig stays assembled and the
+   * layers stay where they belong — they just hold still.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-allegiance="jacob"] .hero-layer--jaw,
+    :root[data-allegiance="jacob"] .hero-layer--head {
+      animation: none;
+    }
+  }
+</style>
