@@ -6,6 +6,7 @@ import type { APIRoute } from "astro";
 import { MAX_SEATS, seatField, successMessage, type Seat } from "@/lib/rsvp";
 import { createRsvp } from "@/lib/notion";
 import { backupRsvp, type RsvpRecord } from "@/lib/rsvp-backup";
+import { notifyRsvp } from "@/lib/rsvp-notify";
 
 type SeatsResult =
   { ok: true; seats: Array<Seat> } | { ok: false; message: string };
@@ -107,6 +108,8 @@ export const POST: APIRoute = async ({ request }) => {
   // the backup exists for.
   await backupRsvp(record);
 
+  let saved = true;
+
   try {
     await createRsvp(record);
     console.log("RSVP saved", {
@@ -115,13 +118,22 @@ export const POST: APIRoute = async ({ request }) => {
       seats: result.seats.length,
     });
   } catch (error) {
+    console.error(`Failed to save RSVP ${record.submission} to Notion:`, error);
+    saved = false;
+  }
+
+  // After Notion, not before, so the ping can say whether the reply actually
+  // landed there — and on both paths, because a failed write is the case most
+  // worth being told about. Best-effort by design: see rsvp-notify.ts.
+  await notifyRsvp(record, saved);
+
+  if (!saved) {
     // Tell the guest the truth. A cheerful "Thank you!" over a failed write
     // is the one outcome we cannot recover from — they would never resend.
     //
     // The seats are written one at a time, so a party can be half-stored:
     // whatever rows carry this submission id in Notion are that partial
     // write, and the backup holds the full party to reconcile against.
-    console.error(`Failed to save RSVP ${record.submission} to Notion:`, error);
     return json("We couldn't save your reply — please try again.", 502);
   }
 
