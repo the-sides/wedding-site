@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { ClothSim } from "./physics";
 import { makeWeaveNormalMap, makeGrainRoughnessMap } from "./textures";
-import { RSVP_CLOSED_DETAILS } from "../rsvp-status";
+import { RSVP_CLOSED_DETAILS, RSVP_CLOSED_HEADING_LINES } from "../rsvp-status";
 
 /** The announcement is printed into the surface, so every letter folds with it. */
 function printNotice() {
@@ -17,17 +17,18 @@ function printNotice() {
   ctx.fillStyle = "#48201e";
   ctx.textAlign = "center";
   ctx.font = "106px Georgia, serif";
-  ctx.fillText("RSVPs are", 768, 510);
-  ctx.fillText("temporarily closed.", 768, 631);
+  RSVP_CLOSED_HEADING_LINES.forEach((line, index) => {
+    ctx.fillText(line, 768, 435 + index * 121);
+  });
   ctx.beginPath();
-  ctx.moveTo(714, 702);
-  ctx.lineTo(822, 702);
+  ctx.moveTo(714, 748);
+  ctx.lineTo(822, 748);
   ctx.stroke();
   ctx.font = "50px Georgia, serif";
   // Keep the same wording as the accessible HTML and API response.
   const words = RSVP_CLOSED_DETAILS.split(" ");
-  ctx.fillText(words.slice(0, 6).join(" "), 768, 794);
-  ctx.fillText(words.slice(6).join(" "), 768, 849);
+  ctx.fillText(words.slice(0, 6).join(" "), 768, 840);
+  ctx.fillText(words.slice(6).join(" "), 768, 895);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
