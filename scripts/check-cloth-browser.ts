@@ -250,6 +250,85 @@ try {
     `256 Kbps / 600 ms latency, cold cache: cloth ready in ${Date.now() - slowStart} ms, no fallback flash.`,
   );
   await slowContext.close();
+
+  // Backgrounding mid-reveal must not spend the reveal's animation budget:
+  // hidden time is skipped on both the RAF and performance clocks, as when a
+  // phone locks or switches apps while the cloth is still bunched up.
+  const hiddenContext = await browser.newContext({ ...devices["Pixel 7"] });
+  await hiddenContext.addInitScript(() => {
+    const test = window as Window & {
+      clothFrames?: number;
+      clothSkipped?: number;
+      clothHidden?: boolean;
+    };
+    test.clothFrames = 0;
+    test.clothSkipped = 0;
+    test.clothHidden = false;
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (callback) =>
+      raf((time) => {
+        test.clothFrames!++;
+        callback(time + test.clothSkipped!);
+      });
+    const now = performance.now.bind(performance);
+    performance.now = () => now() + test.clothSkipped!;
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => test.clothHidden,
+    });
+  });
+  const hidden = await hiddenContext.newPage();
+  hidden.on("pageerror", (error) => errors.push(error.message));
+  await hidden.goto(url, { waitUntil: "load" });
+  await hidden.locator(".cloth-stage.is-ready").waitFor();
+  await hidden.evaluate(() => {
+    const test = window as Window & { clothHidden?: boolean };
+    test.clothHidden = true;
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  const framesBefore = await hidden.evaluate(() => {
+    const test = window as Window & {
+      clothFrames?: number;
+      clothSkipped?: number;
+      clothHidden?: boolean;
+    };
+    test.clothSkipped = 20_000;
+    test.clothHidden = false;
+    document.dispatchEvent(new Event("visibilitychange"));
+    return test.clothFrames!;
+  });
+  await hidden.waitForTimeout(1500);
+  const framesAfter = await hidden.evaluate(
+    () => (window as Window & { clothFrames?: number }).clothFrames!,
+  );
+  assert.ok(
+    framesAfter - framesBefore > 10,
+    `The reveal must resume after 20 s in the background (${framesAfter - framesBefore} frames)`,
+  );
+  console.log(
+    `20 s in the background mid-reveal: the cloth kept falling (${framesAfter - framesBefore} frames in 1.5 s).`,
+  );
+  await hiddenContext.close();
+
+  // A failed script download cannot run the bundle's own catch handler, so
+  // the announcement must be revealed by something outside that bundle.
+  const offlineContext = await browser.newContext({ ...devices["Pixel 7"] });
+  const offline = await offlineContext.newPage();
+  await offline.route("**/_astro/*.js", (route) => route.abort("failed"));
+  await offline.goto(url, { waitUntil: "load" });
+  await offline.locator(".cloth-stage.is-unavailable").waitFor({
+    timeout: 10_000,
+  });
+  assert.ok(
+    (await offline
+      .locator(".cloth-fallback")
+      .evaluate((message) => message.getBoundingClientRect().width)) > 200,
+    "Show the announcement when the cloth script cannot download",
+  );
+  console.log(
+    "Cloth script download failed: the flat announcement is shown instead.",
+  );
+  await offlineContext.close();
   assert.deepEqual(errors, [], "No unexpected browser exceptions");
 } finally {
   await browser.close();

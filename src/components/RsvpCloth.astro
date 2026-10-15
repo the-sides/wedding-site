@@ -24,6 +24,26 @@ import { RSVP_CLOSED_TITLE, RSVP_CLOSED_DETAILS } from "@/lib/rsvp-status";
   </noscript>
 </section>
 
+<!--
+  The bundled script below cannot report its own failed download, so this
+  inline listener reveals the announcement instead. Script load errors do not
+  bubble; only a capturing listener sees them.
+-->
+<script is:inline>
+  document.addEventListener(
+    "error",
+    (event) => {
+      const stage = document.querySelector("[data-cloth-stage]");
+      if (!stage || !(event.target instanceof HTMLScriptElement)) return;
+      if (event.target.type !== "module" || stage.dataset.clothStatus) return;
+      stage.classList.add("is-unavailable");
+      stage.dataset.clothStatus = "script-failed";
+      stage.dataset.clothDetail = event.target.src;
+    },
+    true,
+  );
+</script>
+
 <script>
   import { mountClothNotice } from "@/lib/cloth/notice";
   import { enableClothDiagnostics } from "@/lib/cloth/diagnostics";

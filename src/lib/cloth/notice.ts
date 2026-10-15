@@ -212,8 +212,10 @@ function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
   });
   resize();
 
-  let start = performance.now();
-  let last = start;
+  // Seconds of on-screen animation. Wall-clock time would let a backgrounded
+  // tab spend the reveal and return to a cloth frozen mid-fall.
+  let age = 0;
+  let last = performance.now();
   let frame = 0;
   let running = false;
   let dragging = false;
@@ -241,9 +243,10 @@ function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
   }
   function draw(now: number) {
     if (disposed || contextLost) return;
-    const dt = Math.min((now - last) / 1000, 0.033);
+    const elapsed = Math.max(0, (now - last) / 1000);
+    const dt = Math.min(elapsed, 0.033);
     last = now;
-    const age = (now - start) / 1000;
+    age += elapsed;
     if (!reducedMotion.matches && age > 0.65) sim.step(dt, physics);
     geometry.attributes.position.needsUpdate = true;
     geometry.computeVertexNormals();
@@ -291,7 +294,7 @@ function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
       canvas.releasePointerCapture(event.pointerId);
     canvas.style.cursor = "grab";
     canvas.style.touchAction = "pan-y";
-    start = performance.now() - 4000;
+    age = 4;
   }
   function reset() {
     sim.endGrab();
@@ -299,7 +302,7 @@ function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
     if (reducedMotion.matches) sim.settle();
     else sim.reset();
     canvas.style.cursor = reducedMotion.matches ? "default" : "grab";
-    start = performance.now();
+    age = 0;
     wake();
   }
   function visibility() {
@@ -325,7 +328,7 @@ function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
     if (disposed) return;
     contextLost = false;
     last = performance.now();
-    start = last - 4000;
+    age = 4;
     geometry.attributes.position.needsUpdate = true;
     geometry.computeVertexNormals();
     renderer.render(scene, camera);
