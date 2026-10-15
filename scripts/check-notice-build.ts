@@ -47,8 +47,8 @@ for (const route of ["", "rsvp", "schedule", "venue", "extras", "notice"]) {
 
 for (const size of ["desktop", "mobile"]) {
   assert.ok(
-    statSync(join(root, `notice-background-${size}.webp`)).size < 8192,
-    "Keep the compressed background under 8 KB",
+    statSync(join(root, `notice-background-${size}-smooth.webp`)).size < 65_536,
+    "Keep each smooth backdrop under 64 KB",
   );
 }
 const scriptBytes = gzipSync(readFileSync(join(root, clothScript))).byteLength;

@@ -129,7 +129,7 @@ export async function mountClothNotice(stage: HTMLElement) {
     camera.bottom = -viewHeight / 2;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height);
-    renderer.render(scene, camera);
+    if (!renderer.getContext().isContextLost()) renderer.render(scene, camera);
   }
   const observer = new ResizeObserver(resize);
   observer.observe(host);
@@ -142,6 +142,7 @@ export async function mountClothNotice(stage: HTMLElement) {
   let running = false;
   let dragging = false;
   let disposed = false;
+  let contextLost = false;
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
@@ -163,7 +164,7 @@ export async function mountClothNotice(stage: HTMLElement) {
     raycaster.setFromCamera(pointer, camera);
   }
   function draw(now: number) {
-    if (disposed) return;
+    if (disposed || contextLost) return;
     const dt = Math.min((now - last) / 1000, 0.033);
     last = now;
     const age = (now - start) / 1000;
@@ -184,7 +185,7 @@ export async function mountClothNotice(stage: HTMLElement) {
     else running = false;
   }
   function wake() {
-    if (running || disposed || document.hidden) return;
+    if (running || disposed || contextLost || document.hidden) return;
     running = true;
     last = performance.now();
     frame = requestAnimationFrame(draw);
@@ -231,6 +232,32 @@ export async function mountClothNotice(stage: HTMLElement) {
       running = false;
     } else wake();
   }
+  function onContextLost(event: Event) {
+    event.preventDefault();
+    contextLost = true;
+    cancelAnimationFrame(frame);
+    running = false;
+    dragging = false;
+    sim.endGrab();
+    // Chrome paints a white "sad canvas" after GPU loss. Hide that surface,
+    // keep the message readable, and let Three.js rebuild its GPU resources.
+    stage.classList.remove("is-ready");
+    stage.classList.add("is-unavailable");
+  }
+  function onContextRestored() {
+    if (disposed) return;
+    contextLost = false;
+    last = performance.now();
+    start = last - 4000;
+    geometry.attributes.position.needsUpdate = true;
+    geometry.computeVertexNormals();
+    renderer.render(scene, camera);
+    stage.classList.remove("is-unavailable");
+    stage.classList.add("is-ready");
+    wake();
+  }
+  canvas.addEventListener("webglcontextlost", onContextLost);
+  canvas.addEventListener("webglcontextrestored", onContextRestored);
   canvas.addEventListener("pointerdown", onDown);
   canvas.addEventListener("pointermove", onMove);
   canvas.addEventListener("pointerup", onUp);
@@ -255,6 +282,8 @@ export async function mountClothNotice(stage: HTMLElement) {
     disposed = true;
     cancelAnimationFrame(frame);
     observer.disconnect();
+    canvas.removeEventListener("webglcontextlost", onContextLost);
+    canvas.removeEventListener("webglcontextrestored", onContextRestored);
     window.removeEventListener("pageshow", wake);
     reducedMotion.removeEventListener("change", reset);
     document.removeEventListener("visibilitychange", visibility);

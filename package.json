@@ -12,7 +12,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "astro": "astro",
-    "check:notice": "bun scripts/check-notice-build.ts"
+    "check:notice": "bun scripts/check-notice-build.ts",
+    "check:cloth": "bun scripts/check-cloth-browser.ts"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.2",
@@ -33,6 +34,7 @@
     "@astrojs/check": "^0.9.10",
     "@types/node": "^26.4.0",
     "@types/three": "^0.185.0",
+    "playwright-core": "^1.64.1",
     "prettier": "^3.5.3",
     "prettier-plugin-astro": "^0.14.1",
     "typescript": "^6"

@@ -18,6 +18,15 @@ Rebuild and redeploy after changing the flag. Run `bun run check:notice` after
 before rendering; the notice has its own HTML shell and does not import the
 normal layout or global styles. The cloth has priority and its HTML alternative
 stays hidden while it loads; it appears only if JavaScript/WebGL is unavailable.
+If the browser loses its WebGL context, the broken GPU surface is hidden and
+Three.js rebuilds it when the context returns.
+
+The static backdrops use 860 px (phone) and 1600 px (desktop) images, around
+9 KB and 14 KB respectively, to keep the blur smooth on high-density screens.
+Run `bun run check:cloth <preview-or-local-URL>` with an installed Chromium
+(`CHROMIUM_PATH` overrides `/usr/bin/chromium`) to test normal and slow loading,
+no fallback flash, and forced GPU context loss/recovery. No browser download
+is required.
 
 ## Development
 
