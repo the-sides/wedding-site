@@ -25,23 +25,37 @@ import { RSVP_CLOSED_TITLE, RSVP_CLOSED_DETAILS } from "@/lib/rsvp-status";
 </section>
 
 <!--
-  The bundled script below cannot report its own failed download, so this
-  inline listener reveals the announcement instead. Script load errors do not
-  bubble; only a capturing listener sees them.
+  The bundled script below cannot report its own failed or stalled download,
+  so this inline script reveals the announcement instead. Script load errors
+  do not bubble; only a capturing listener sees them. A stalled download
+  fires nothing, so the message also appears if the cloth has not started
+  after 20 s — long after a slow but working connection would have finished.
+  If the cloth arrives later, mounting it takes over from the flat message.
 -->
 <script is:inline>
-  document.addEventListener(
-    "error",
-    (event) => {
+  {
+    const reveal = (status, detail) => {
       const stage = document.querySelector("[data-cloth-stage]");
-      if (!stage || !(event.target instanceof HTMLScriptElement)) return;
-      if (event.target.type !== "module" || stage.dataset.clothStatus) return;
+      const current = stage?.dataset.clothStatus;
+      if (!stage || (current && current !== "script-stalled")) return;
       stage.classList.add("is-unavailable");
-      stage.dataset.clothStatus = "script-failed";
-      stage.dataset.clothDetail = event.target.src;
-    },
-    true,
-  );
+      stage.dataset.clothStatus = status;
+      stage.dataset.clothDetail = detail;
+    };
+    document.addEventListener(
+      "error",
+      (event) => {
+        const script = event.target;
+        if (script instanceof HTMLScriptElement && script.type === "module")
+          reveal("script-failed", script.src);
+      },
+      true,
+    );
+    setTimeout(
+      () => reveal("script-stalled", "not started after 20 s"),
+      20_000,
+    );
+  }
 </script>
 
 <script>

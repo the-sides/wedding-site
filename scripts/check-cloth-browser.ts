@@ -4,7 +4,7 @@
  * (from `vercel env pull`); a stale one in .env.local gets the login page.
  */
 import assert from "node:assert/strict";
-import { chromium, devices } from "playwright-core";
+import { chromium, devices, type Route } from "playwright-core";
 
 const url = process.argv[2] ?? "http://localhost:3000";
 const browser = await chromium.launch({
@@ -340,6 +340,49 @@ try {
     "Cloth script download failed: the flat announcement is shown instead.",
   );
   await offlineContext.close();
+
+  // A download that stalls fires no error at all; reveal the message late
+  // enough that the throttled-but-successful load above never sees it.
+  const stalledContext = await browser.newContext(phone);
+  const stalled = await stalledContext.newPage();
+  const held: Route[] = [];
+  await stalled.route("**/_astro/*.js", (route) => {
+    held.push(route);
+  });
+  const stalledStart = Date.now();
+  await stalled.goto(url, { waitUntil: "commit" });
+  await stalled.locator("[data-cloth-stage]").waitFor();
+  assert.equal(
+    await stalled
+      .locator(".cloth-fallback")
+      .evaluate((message) => message.getBoundingClientRect().width),
+    1,
+    "Give a slow download time before revealing the flat message",
+  );
+  await stalled.locator(".cloth-stage.is-unavailable").waitFor({
+    timeout: 30_000,
+  });
+  assert.ok(
+    (await stalled
+      .locator(".cloth-fallback")
+      .evaluate((message) => message.getBoundingClientRect().width)) > 200,
+    "Show the announcement when the cloth script download stalls",
+  );
+  const revealedAfter = Date.now() - stalledStart;
+  // When the download finally completes, the cloth takes over the message.
+  await Promise.all(held.map((route) => route.continue()));
+  await stalled.locator(".cloth-stage.is-ready").waitFor({ timeout: 30_000 });
+  assert.equal(
+    await stalled
+      .locator(".cloth-fallback")
+      .evaluate((message) => message.getBoundingClientRect().width),
+    1,
+    "A late cloth replaces the flat message",
+  );
+  console.log(
+    `Cloth script download stalled: announcement shown after ${revealedAfter} ms; the cloth took over once it arrived.`,
+  );
+  await stalledContext.close();
   assert.deepEqual(errors, [], "No unexpected browser exceptions");
 } finally {
   await browser.close();
