@@ -1,4 +1,8 @@
-/** Uses an installed Chromium; set CHROMIUM_PATH if it is not /usr/bin/chromium. */
+/**
+ * Uses an installed Chromium; set CHROMIUM_PATH if it is not /usr/bin/chromium.
+ * For a protected preview, set VERCEL_OIDC_TOKEN to a fresh development token
+ * (from `vercel env pull`); a stale one in .env.local gets the login page.
+ */
 import assert from "node:assert/strict";
 import { chromium, devices } from "playwright-core";
 
@@ -13,9 +17,16 @@ const browser = await chromium.launch({
     "--enable-unsafe-swiftshader",
   ],
 });
+// Vercel Trusted Sources lets this project's development token open its previews.
+const phone = {
+  ...devices["Pixel 7"],
+  extraHTTPHeaders: process.env.VERCEL_OIDC_TOKEN
+    ? { "x-vercel-trusted-oidc-idp-token": process.env.VERCEL_OIDC_TOKEN }
+    : undefined,
+};
 const errors: string[] = [];
 try {
-  const context = await browser.newContext({ ...devices["Pixel 7"] });
+  const context = await browser.newContext(phone);
   // Inspect the actual print canvas before it is uploaded as a GPU texture.
   // A smaller phone texture must still have cream paper behind every letter.
   await context.addInitScript(() => {
@@ -180,7 +191,7 @@ try {
 
   // Exercise the real first-render exception path, rather than just a lost
   // context after successful startup. It must release partial allocations.
-  const failedContext = await browser.newContext({ ...devices["Pixel 7"] });
+  const failedContext = await browser.newContext(phone);
   await failedContext.addInitScript(() => {
     const original = WebGL2RenderingContext.prototype.drawElements;
     let first = true;
@@ -223,7 +234,7 @@ try {
   );
   await failedContext.close();
 
-  const slowContext = await browser.newContext({ ...devices["Pixel 7"] });
+  const slowContext = await browser.newContext(phone);
   const slow = await slowContext.newPage();
   slow.on("pageerror", (error) => errors.push(error.message));
   const cdp = await slowContext.newCDPSession(slow);
@@ -254,7 +265,7 @@ try {
   // Backgrounding mid-reveal must not spend the reveal's animation budget:
   // hidden time is skipped on both the RAF and performance clocks, as when a
   // phone locks or switches apps while the cloth is still bunched up.
-  const hiddenContext = await browser.newContext({ ...devices["Pixel 7"] });
+  const hiddenContext = await browser.newContext(phone);
   await hiddenContext.addInitScript(() => {
     const test = window as Window & {
       clothFrames?: number;
@@ -312,7 +323,7 @@ try {
 
   // A failed script download cannot run the bundle's own catch handler, so
   // the announcement must be revealed by something outside that bundle.
-  const offlineContext = await browser.newContext({ ...devices["Pixel 7"] });
+  const offlineContext = await browser.newContext(phone);
   const offline = await offlineContext.newPage();
   await offline.route("**/_astro/*.js", (route) => route.abort("failed"));
   await offline.goto(url, { waitUntil: "load" });
