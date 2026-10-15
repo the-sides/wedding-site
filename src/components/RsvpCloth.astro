@@ -11,6 +11,17 @@ import { RSVP_CLOSED_TITLE, RSVP_CLOSED_DETAILS } from "@/lib/rsvp-status";
     </div>
     <div class="cloth-canvas" data-cloth-canvas aria-hidden="true"></div>
   </div>
+  <noscript>
+    <style is:inline>
+      .cloth-stage .cloth-fallback {
+        clip-path: none !important;
+        width: auto !important;
+        height: auto !important;
+        padding: 32px !important;
+        overflow: visible !important;
+      }
+    </style>
+  </noscript>
 </section>
 
 <script>
@@ -18,7 +29,8 @@ import { RSVP_CLOSED_TITLE, RSVP_CLOSED_DETAILS } from "@/lib/rsvp-status";
   const stage = document.querySelector<HTMLElement>("[data-cloth-stage]");
   if (stage)
     mountClothNotice(stage).catch((error) => {
-      // The HTML notice stays visible if WebGL is unavailable.
+      // Show the HTML alternative only on an actual rendering failure.
+      stage.classList.add("is-unavailable");
       console.warn("Cloth animation unavailable:", error);
     });
 </script>
@@ -82,7 +94,7 @@ import { RSVP_CLOSED_TITLE, RSVP_CLOSED_DETAILS } from "@/lib/rsvp-status";
   .cloth-stage.is-ready .cloth-canvas {
     opacity: 1;
   }
-  .cloth-stage.is-ready .cloth-fallback {
+  .cloth-stage:not(.is-unavailable) .cloth-fallback {
     clip-path: inset(50%);
     width: 1px;
     height: 1px;

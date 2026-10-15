@@ -11,7 +11,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "astro": "astro"
+    "astro": "astro",
+    "check:notice": "bun scripts/check-notice-build.ts"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.2",

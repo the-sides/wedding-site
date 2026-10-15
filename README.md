@@ -3,6 +3,22 @@
 Wedding site for Jacob and Vicki, built with [Astro](https://astro.build) and
 backed by Notion for updates.
 
+## Temporary notice mode
+
+**The switch is `NOTICE_ONLY` at the top of [`site.config.ts`](./site.config.ts).**
+
+- `true` serves only the cloth announcement and a tiny, already-blurred WebP
+  backdrop on every page. The wedding pages never render, so no carousel,
+  video, original photos, fonts, React, or Notion post queries load. RSVP
+  submissions are closed before any writes or notifications.
+- `false` restores the wedding site and reopens RSVP submissions.
+
+Rebuild and redeploy after changing the flag. Run `bun run check:notice` after
+`bun run build` to verify that every built page excludes the original site assets. Middleware rewrites page routes
+before rendering; the notice has its own HTML shell and does not import the
+normal layout or global styles. The cloth has priority and its HTML alternative
+stays hidden while it loads; it appears only if JavaScript/WebGL is unavailable.
+
 ## Development
 
 ```sh
@@ -17,19 +33,19 @@ empty state on `/extras` instead of failing the build.
 
 ## Scripts
 
-| Command             | Description                                       |
-| ------------------- | ------------------------------------------------- |
-| `bun run dev`       | Dev server on port 3000                           |
-| `bun run build`     | Prerender to `dist/` and emit `.vercel/output/`   |
-| `bun run preview`   | Serve the production build                        |
-| `bun run check`     | Type-check `.astro` and `.ts` files               |
+| Command           | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| `bun run dev`     | Dev server on port 3000                         |
+| `bun run build`   | Prerender to `dist/` and emit `.vercel/output/` |
+| `bun run preview` | Serve the production build                      |
+| `bun run check`   | Type-check `.astro` and `.ts` files             |
 
 ## How it renders
 
-Every page is prerendered to static HTML at build time. Only `/rsvp` ships
-client JavaScript — the RSVP form is a React island (`client:load`); every
-other page is plain HTML. Notion is queried during the build in
-`src/pages/extras.astro`.
+Every page is prerendered to static HTML at build time. With notice mode off,
+`/rsvp` ships its React form (`client:load`) and the home page has an animated
+hero. Notion is queried during the build in `src/pages/extras.astro`. Notice
+mode intercepts those pages before rendering or data fetching.
 
 `src/pages/api/notion-webhook.ts` is the one exception: it sets
 `export const prerender = false`, so it deploys as a Vercel Function. Notion

@@ -36,12 +36,13 @@ function printNotice() {
 export async function mountClothNotice(stage: HTMLElement) {
   const host = stage.querySelector<HTMLElement>("[data-cloth-canvas]")!;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const compact = window.matchMedia("(max-width: 600px)").matches;
   const renderer = new THREE.WebGLRenderer({
     alpha: true,
     antialias: true,
     powerPreference: "low-power",
   });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, compact ? 1.5 : 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -51,8 +52,10 @@ export async function mountClothNotice(stage: HTMLElement) {
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-4, 4, 3, -3, 0.1, 30);
   camera.position.set(0, 0, 12);
-  const sim = new ClothSim(5.5, 4.6, 44, 38);
-  const geometry = new THREE.PlaneGeometry(5.5, 4.6, 44, 38);
+  const segX = compact ? 32 : 44;
+  const segY = compact ? 28 : 38;
+  const sim = new ClothSim(5.5, 4.6, segX, segY);
+  const geometry = new THREE.PlaneGeometry(5.5, 4.6, segX, segY);
   geometry.setAttribute(
     "position",
     new THREE.BufferAttribute(sim.positions, 3),
@@ -62,7 +65,7 @@ export async function mountClothNotice(stage: HTMLElement) {
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   const print = printNotice();
   print.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-  const weave = makeWeaveNormalMap(256, 80);
+  const weave = makeWeaveNormalMap(compact ? 128 : 256, compact ? 40 : 80);
   weave.repeat.set(5, 5);
   const grain = makeGrainRoughnessMap();
   const material = new THREE.MeshPhysicalMaterial({
@@ -86,7 +89,8 @@ export async function mountClothNotice(stage: HTMLElement) {
   const light = new THREE.DirectionalLight("#fff4df", 2.8);
   light.position.set(-3, 6, 8);
   light.castShadow = true;
-  light.shadow.mapSize.set(1024, 1024);
+  const shadowSize = compact ? 512 : 1024;
+  light.shadow.mapSize.set(shadowSize, shadowSize);
   Object.assign(light.shadow.camera, {
     left: -5,
     right: 5,
@@ -146,7 +150,7 @@ export async function mountClothNotice(stage: HTMLElement) {
   const physics = {
     viscosity: 0.045,
     stiffness: 0.92,
-    iterations: 9,
+    iterations: compact ? 7 : 9,
     smoothing: 0.001,
   };
 
@@ -233,6 +237,7 @@ export async function mountClothNotice(stage: HTMLElement) {
   canvas.addEventListener("pointercancel", onUp);
   reducedMotion.addEventListener("change", reset);
   document.addEventListener("visibilitychange", visibility);
+  window.addEventListener("pageshow", wake);
   if (reducedMotion.matches) sim.settle();
   else {
     canvas.style.cursor = "grab";
@@ -240,29 +245,32 @@ export async function mountClothNotice(stage: HTMLElement) {
   stage.classList.add("is-ready");
   wake();
 
-  window.addEventListener(
-    "pagehide",
-    () => {
-      disposed = true;
+  window.addEventListener("pagehide", (event) => {
+    if (event.persisted) {
+      // Phones often restore this exact page from the back/forward cache.
       cancelAnimationFrame(frame);
-      observer.disconnect();
-      reducedMotion.removeEventListener("change", reset);
-      document.removeEventListener("visibilitychange", visibility);
-      for (const resource of [
-        geometry,
-        material,
-        print,
-        weave,
-        grain,
-        wallGeometry,
-        wallMaterial,
-        pinGeometry,
-        pinMaterial,
-      ])
-        resource.dispose();
-      renderer.dispose();
-      canvas.remove();
-    },
-    { once: true },
-  );
+      running = false;
+      return;
+    }
+    disposed = true;
+    cancelAnimationFrame(frame);
+    observer.disconnect();
+    window.removeEventListener("pageshow", wake);
+    reducedMotion.removeEventListener("change", reset);
+    document.removeEventListener("visibilitychange", visibility);
+    for (const resource of [
+      geometry,
+      material,
+      print,
+      weave,
+      grain,
+      wallGeometry,
+      wallMaterial,
+      pinGeometry,
+      pinMaterial,
+    ])
+      resource.dispose();
+    renderer.dispose();
+    canvas.remove();
+  });
 }
