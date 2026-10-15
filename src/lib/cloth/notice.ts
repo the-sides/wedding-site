@@ -9,9 +9,10 @@ function printNotice(compact: boolean) {
   canvas.width = compact ? 1024 : 1536;
   canvas.height = compact ? 854 : 1280;
   const ctx = canvas.getContext("2d")!;
-  ctx.scale(canvas.width / 1536, canvas.height / 1280);
   ctx.fillStyle = "#fff8e9";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Fill in physical pixels before scaling the artwork's logical coordinates.
+  ctx.scale(canvas.width / 1536, canvas.height / 1280);
 
   ctx.strokeStyle = "#8f5147";
   ctx.lineWidth = 1.5;

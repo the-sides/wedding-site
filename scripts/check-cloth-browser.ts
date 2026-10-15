@@ -16,6 +16,22 @@ const browser = await chromium.launch({
 const errors: string[] = [];
 try {
   const context = await browser.newContext({ ...devices["Pixel 7"] });
+  // Inspect the actual print canvas before it is uploaded as a GPU texture.
+  // A smaller phone texture must still have cream paper behind every letter.
+  await context.addInitScript(() => {
+    const canvases: HTMLCanvasElement[] = [];
+    (
+      window as Window & { clothPrintCanvases?: HTMLCanvasElement[] }
+    ).clothPrintCanvases = canvases;
+    const createElement = document.createElement.bind(document);
+    document.createElement = ((
+      ...args: Parameters<typeof document.createElement>
+    ) => {
+      const element = createElement(...args);
+      if (element instanceof HTMLCanvasElement) canvases.push(element);
+      return element;
+    }) as typeof document.createElement;
+  });
   const page = await context.newPage();
   page.on("pageerror", (error) => errors.push(error.message));
   const requests: string[] = [];
@@ -24,6 +40,29 @@ try {
   await page.goto(url, { waitUntil: "load" });
   await page.locator(".cloth-stage.is-ready").waitFor();
   console.log(`Normal connection: cloth ready in ${Date.now() - start} ms.`);
+  const printCorners = await page.evaluate(() => {
+    const print = (
+      window as Window & { clothPrintCanvases?: HTMLCanvasElement[] }
+    ).clothPrintCanvases?.find(
+      (canvas) => canvas.width === 1024 && canvas.height === 854,
+    );
+    if (!print) throw new Error("Phone print texture not found");
+    const ctx = print.getContext("2d")!;
+    return [
+      [0, 0],
+      [print.width - 1, 0],
+      [0, print.height - 1],
+      [print.width - 1, print.height - 1],
+    ].map(([x, y]) => Array.from(ctx.getImageData(x, y, 1, 1).data));
+  });
+  assert.deepEqual(
+    printCorners,
+    Array.from({ length: 4 }, () => [255, 248, 233, 255]),
+    "The cream paper must cover the entire phone texture, including the right and bottom edges",
+  );
+  console.log(
+    "Phone artwork: all four texture corners have opaque cream paper.",
+  );
   assert.equal(
     requests.filter((request) =>
       /keepsakes|walking\.jpg|\.woff2?|react-dom/.test(request),
