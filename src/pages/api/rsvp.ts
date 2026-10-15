@@ -3,6 +3,11 @@
 export const prerender = false;
 
 import type { APIRoute } from "astro";
+import {
+  RSVPS_OPEN,
+  RSVP_CLOSED_TITLE,
+  RSVP_CLOSED_DETAILS,
+} from "@/lib/rsvp-status";
 import { MAX_SEATS, seatField, successMessage, type Seat } from "@/lib/rsvp";
 import { createRsvp } from "@/lib/notion";
 import { backupRsvp, type RsvpRecord } from "@/lib/rsvp-backup";
@@ -84,6 +89,11 @@ function json(message: string, status: number) {
 }
 
 export const POST: APIRoute = async ({ request }) => {
+  // Reject even stale, already-open forms before parsing or writing anything.
+  if (!RSVPS_OPEN) {
+    return json(`${RSVP_CLOSED_TITLE} ${RSVP_CLOSED_DETAILS}`, 503);
+  }
+
   const data = await request.formData();
 
   const email = text(data, "email");

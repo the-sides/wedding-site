@@ -1,5 +1,11 @@
 ---
 import "@/styles/global.css";
+import RsvpCloth from "@/components/RsvpCloth.astro";
+import {
+  RSVPS_OPEN,
+  RSVP_CLOSED_TITLE,
+  RSVP_CLOSED_DETAILS,
+} from "@/lib/rsvp-status";
 
 interface Props {
   title?: string;
@@ -21,15 +27,84 @@ const imageUrl = Astro.site ? new URL(image, Astro.site).href : image;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
-    <meta name="description" content={description} />
+    <meta
+      name="description"
+      content={RSVPS_OPEN
+        ? description
+        : `${RSVP_CLOSED_TITLE} ${RSVP_CLOSED_DETAILS}`}
+    />
     <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
+    <meta
+      property="og:description"
+      content={RSVPS_OPEN
+        ? description
+        : `${RSVP_CLOSED_TITLE} ${RSVP_CLOSED_DETAILS}`}
+    />
     <meta property="og:image" content={imageUrl} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="generator" content={Astro.generator} />
   </head>
   <body class="dark">
-    <slot />
+    <div inert={!RSVPS_OPEN} class:list={[!RSVPS_OPEN && "site-paused"]}>
+      <slot />
+    </div>
+    {
+      !RSVPS_OPEN && (
+        <div
+          class="site-notice"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="notice-heading"
+          tabindex="-1"
+          data-site-notice
+        >
+          <RsvpCloth />
+        </div>
+      )
+    }
   </body>
 </html>
+
+<script>
+  // Keep keyboard focus in the announcement, including on direct page visits.
+  document
+    .querySelector<HTMLElement>("[data-site-notice]")
+    ?.focus({ preventScroll: true });
+</script>
+
+<style>
+  :global(body:has(.site-notice)) {
+    overflow: hidden;
+  }
+  .site-paused :global(*) {
+    animation-play-state: paused !important;
+  }
+  .site-paused {
+    height: 100svh;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    filter: blur(8px) brightness(0.46);
+  }
+  .site-notice {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: #211a1559;
+    outline: none;
+  }
+  .site-notice :global(.cloth-notice) {
+    width: 100%;
+  }
+  @media (max-height: 650px) {
+    .site-notice {
+      justify-content: flex-start;
+    }
+  }
+</style>

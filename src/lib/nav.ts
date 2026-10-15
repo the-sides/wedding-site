@@ -1,3 +1,5 @@
+import { RSVPS_OPEN } from "./rsvp-status";
+
 /*
  * The four destinations off the home page. Both the home page cards and the
  * interior header nav read from this list, so adding or renaming a page is a
@@ -16,7 +18,7 @@ export const navLinks: Array<NavLink> = [
   {
     href: "/rsvp",
     label: "RSVP",
-    eyebrow: "Invite",
+    eyebrow: RSVPS_OPEN ? "Invite" : "Temporarily closed",
   },
   {
     href: "/schedule",
