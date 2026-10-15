@@ -19,7 +19,17 @@ before rendering; the notice has its own HTML shell and does not import the
 normal layout or global styles. The cloth has priority and its HTML alternative
 stays hidden while it loads; it appears only if JavaScript/WebGL is unavailable.
 If the browser loses its WebGL context, the broken GPU surface is hidden and
-Three.js rebuilds it when the context returns.
+Three.js rebuilds it when the context returns. Leaving or reloading the page
+explicitly releases its GPU context and shadow targets, including after a failed
+first render and when the page
+enters the back/forward cache; returning creates a fresh renderer. Phones also
+use a smaller print texture without mipmaps or multisample antialiasing.
+
+For a failure specific to a phone, append `?cloth-debug=1` (or `&cloth-debug=1`
+if the URL already has parameters). The opt-in Graphics diagnostics panel can
+copy the context-creation error, context-loss events, GPU renderer, and recent
+reload history. The report stays in that tab's session storage and is never sent
+to a server; the normal notice has no diagnostics UI.
 
 The static backdrops use 860 px (phone) and 1600 px (desktop) images, around
 9 KB and 14 KB respectively, to keep the blur smooth on high-density screens.

@@ -4,11 +4,12 @@ import { makeWeaveNormalMap, makeGrainRoughnessMap } from "./textures";
 import { RSVP_CLOSED_DETAILS, RSVP_CLOSED_HEADING_LINES } from "../rsvp-status";
 
 /** The announcement is printed into the surface, so every letter folds with it. */
-function printNotice() {
+function printNotice(compact: boolean) {
   const canvas = document.createElement("canvas");
-  canvas.width = 1536;
-  canvas.height = 1280;
+  canvas.width = compact ? 1024 : 1536;
+  canvas.height = compact ? 854 : 1280;
   const ctx = canvas.getContext("2d")!;
+  ctx.scale(canvas.width / 1536, canvas.height / 1280);
   ctx.fillStyle = "#fff8e9";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -31,19 +32,77 @@ function printNotice() {
   ctx.fillText(words.slice(6).join(" "), 768, 895);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
+  if (compact) {
+    texture.generateMipmaps = false;
+    texture.minFilter = THREE.LinearFilter;
+  }
   return texture;
 }
 
-export async function mountClothNotice(stage: HTMLElement) {
+type Lifetime = {
+  own<T extends { dispose(): void }>(resource: T): T;
+  onDispose(release: () => void): void;
+};
+
+/** Release every allocation even when startup fails before the first frame. */
+export function mountClothNotice(stage: HTMLElement) {
+  const releases: Array<() => void> = [];
+  let released = false;
+  const lifetime: Lifetime = {
+    own(resource) {
+      releases.push(() => resource.dispose());
+      return resource;
+    },
+    onDispose(release) {
+      releases.push(release);
+    },
+  };
+  function release() {
+    if (released) return;
+    released = true;
+    for (const dispose of releases.reverse()) {
+      try {
+        dispose();
+      } catch (error) {
+        console.warn("Cloth resource cleanup failed:", error);
+      }
+    }
+    releases.length = 0;
+  }
+  try {
+    createClothNotice(stage, lifetime);
+    return release;
+  } catch (error) {
+    release();
+    throw error;
+  }
+}
+
+function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
   const host = stage.querySelector<HTMLElement>("[data-cloth-canvas]")!;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const compact = window.matchMedia("(max-width: 600px)").matches;
+  const renderCanvas = document.createElement("canvas");
+  renderCanvas.addEventListener(
+    "webglcontextcreationerror",
+    (event) => {
+      stage.dataset.clothDetail = (event as WebGLContextEvent).statusMessage;
+    },
+    { once: true },
+  );
   const renderer = new THREE.WebGLRenderer({
+    canvas: renderCanvas,
     alpha: true,
-    antialias: true,
+    stencil: false,
+    antialias: !compact,
     powerPreference: "low-power",
   });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, compact ? 1.5 : 2));
+  lifetime.onDispose(() => {
+    // dispose() alone leaves the native context alive until browser GC.
+    renderer.forceContextLoss();
+    renderer.dispose();
+  });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, compact ? 1.25 : 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -56,7 +115,7 @@ export async function mountClothNotice(stage: HTMLElement) {
   const segX = compact ? 32 : 44;
   const segY = compact ? 28 : 38;
   const sim = new ClothSim(5.5, 4.6, segX, segY);
-  const geometry = new THREE.PlaneGeometry(5.5, 4.6, segX, segY);
+  const geometry = lifetime.own(new THREE.PlaneGeometry(5.5, 4.6, segX, segY));
   geometry.setAttribute(
     "position",
     new THREE.BufferAttribute(sim.positions, 3),
@@ -64,24 +123,28 @@ export async function mountClothNotice(stage: HTMLElement) {
   const colors = new Float32Array(sim.count * 3).fill(1);
   const cavity = new Float32Array(sim.count);
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  const print = printNotice();
+  const print = lifetime.own(printNotice(compact));
   print.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-  const weave = makeWeaveNormalMap(compact ? 128 : 256, compact ? 40 : 80);
+  const weave = lifetime.own(
+    makeWeaveNormalMap(compact ? 128 : 256, compact ? 40 : 80),
+  );
   weave.repeat.set(5, 5);
-  const grain = makeGrainRoughnessMap();
-  const material = new THREE.MeshPhysicalMaterial({
-    map: print,
-    normalMap: weave,
-    normalScale: new THREE.Vector2(0.16, 0.16),
-    roughnessMap: grain,
-    roughness: 0.94,
-    metalness: 0,
-    sheen: 0.35,
-    sheenColor: new THREE.Color("#ede0c7"),
-    sheenRoughness: 0.9,
-    side: THREE.DoubleSide,
-    vertexColors: true,
-  });
+  const grain = lifetime.own(makeGrainRoughnessMap());
+  const material = lifetime.own(
+    new THREE.MeshPhysicalMaterial({
+      map: print,
+      normalMap: weave,
+      normalScale: new THREE.Vector2(0.16, 0.16),
+      roughnessMap: grain,
+      roughness: 0.94,
+      metalness: 0,
+      sheen: 0.35,
+      sheenColor: new THREE.Color("#ede0c7"),
+      sheenRoughness: 0.9,
+      side: THREE.DoubleSide,
+      vertexColors: true,
+    }),
+  );
   const cloth = new THREE.Mesh(geometry, material);
   cloth.castShadow = true;
   cloth.receiveShadow = true;
@@ -90,6 +153,7 @@ export async function mountClothNotice(stage: HTMLElement) {
   const light = new THREE.DirectionalLight("#fff4df", 2.8);
   light.position.set(-3, 6, 8);
   light.castShadow = true;
+  lifetime.own(light.shadow);
   const shadowSize = compact ? 512 : 1024;
   light.shadow.mapSize.set(shadowSize, shadowSize);
   Object.assign(light.shadow.camera, {
@@ -101,20 +165,24 @@ export async function mountClothNotice(stage: HTMLElement) {
   light.shadow.bias = -0.001;
   light.shadow.normalBias = 0.02;
   scene.add(light);
-  const wallGeometry = new THREE.PlaneGeometry(30, 30);
-  const wallMaterial = new THREE.ShadowMaterial({ opacity: 0.12 });
+  const wallGeometry = lifetime.own(new THREE.PlaneGeometry(30, 30));
+  const wallMaterial = lifetime.own(
+    new THREE.ShadowMaterial({ opacity: 0.12 }),
+  );
   const wall = new THREE.Mesh(wallGeometry, wallMaterial);
   wall.position.z = -0.65;
   wall.receiveShadow = true;
   scene.add(wall);
 
   // Two tiny brass pins make the suspension points legible.
-  const pinGeometry = new THREE.SphereGeometry(0.035, 12, 8);
-  const pinMaterial = new THREE.MeshStandardMaterial({
-    color: "#9b6e38",
-    metalness: 0.7,
-    roughness: 0.4,
-  });
+  const pinGeometry = lifetime.own(new THREE.SphereGeometry(0.035, 12, 8));
+  const pinMaterial = lifetime.own(
+    new THREE.MeshStandardMaterial({
+      color: "#9b6e38",
+      metalness: 0.7,
+      roughness: 0.4,
+    }),
+  );
   for (const x of [-2.75, 2.75]) {
     const pin = new THREE.Mesh(pinGeometry, pinMaterial);
     pin.position.set(x, 2.3, 0.045);
@@ -135,6 +203,12 @@ export async function mountClothNotice(stage: HTMLElement) {
   const observer = new ResizeObserver(resize);
   observer.observe(host);
   host.appendChild(renderer.domElement);
+  lifetime.onDispose(() => {
+    observer.disconnect();
+    renderer.domElement.remove();
+    stage.classList.remove("is-ready", "is-unavailable");
+    stage.dataset.clothStatus = "released";
+  });
   resize();
 
   let start = performance.now();
@@ -244,6 +318,7 @@ export async function mountClothNotice(stage: HTMLElement) {
     // keep the message readable, and let Three.js rebuild its GPU resources.
     stage.classList.remove("is-ready");
     stage.classList.add("is-unavailable");
+    stage.dataset.clothStatus = "context-lost";
   }
   function onContextRestored() {
     if (disposed) return;
@@ -255,6 +330,7 @@ export async function mountClothNotice(stage: HTMLElement) {
     renderer.render(scene, camera);
     stage.classList.remove("is-unavailable");
     stage.classList.add("is-ready");
+    stage.dataset.clothStatus = "restored";
     wake();
   }
   canvas.addEventListener("webglcontextlost", onContextLost);
@@ -265,42 +341,25 @@ export async function mountClothNotice(stage: HTMLElement) {
   canvas.addEventListener("pointercancel", onUp);
   reducedMotion.addEventListener("change", reset);
   document.addEventListener("visibilitychange", visibility);
-  window.addEventListener("pageshow", wake);
   if (reducedMotion.matches) sim.settle();
   else {
     canvas.style.cursor = "grab";
   }
   stage.classList.add("is-ready");
+  stage.dataset.clothStatus = "ready";
   wake();
 
-  window.addEventListener("pagehide", (event) => {
-    if (event.persisted) {
-      // Phones often restore this exact page from the back/forward cache.
-      cancelAnimationFrame(frame);
-      running = false;
-      return;
-    }
+  lifetime.onDispose(() => {
+    if (disposed) return;
     disposed = true;
     cancelAnimationFrame(frame);
-    observer.disconnect();
     canvas.removeEventListener("webglcontextlost", onContextLost);
     canvas.removeEventListener("webglcontextrestored", onContextRestored);
-    window.removeEventListener("pageshow", wake);
     reducedMotion.removeEventListener("change", reset);
     document.removeEventListener("visibilitychange", visibility);
-    for (const resource of [
-      geometry,
-      material,
-      print,
-      weave,
-      grain,
-      wallGeometry,
-      wallMaterial,
-      pinGeometry,
-      pinMaterial,
-    ])
-      resource.dispose();
-    renderer.dispose();
-    canvas.remove();
+    canvas.removeEventListener("pointerdown", onDown);
+    canvas.removeEventListener("pointermove", onMove);
+    canvas.removeEventListener("pointerup", onUp);
+    canvas.removeEventListener("pointercancel", onUp);
   });
 }

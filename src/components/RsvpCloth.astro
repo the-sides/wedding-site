@@ -26,13 +26,35 @@ import { RSVP_CLOSED_TITLE, RSVP_CLOSED_DETAILS } from "@/lib/rsvp-status";
 
 <script>
   import { mountClothNotice } from "@/lib/cloth/notice";
+  import { enableClothDiagnostics } from "@/lib/cloth/diagnostics";
+
   const stage = document.querySelector<HTMLElement>("[data-cloth-stage]");
-  if (stage)
-    mountClothNotice(stage).catch((error) => {
-      // Show the HTML alternative only on an actual rendering failure.
-      stage.classList.add("is-unavailable");
-      console.warn("Cloth animation unavailable:", error);
+  if (stage) {
+    enableClothDiagnostics(stage);
+    let release: (() => void) | undefined;
+    function mount() {
+      if (!stage || release) return;
+      stage.classList.remove("is-ready", "is-unavailable");
+      stage.dataset.clothStatus = "starting";
+      delete stage.dataset.clothDetail;
+      try {
+        release = mountClothNotice(stage);
+      } catch (error) {
+        stage.classList.add("is-unavailable");
+        stage.dataset.clothStatus = "initialization-failed";
+        stage.dataset.clothDetail ||= String(error);
+        console.warn("Cloth animation unavailable:", error);
+      }
+    }
+    window.addEventListener("pagehide", () => {
+      release?.();
+      release = undefined;
     });
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) mount();
+    });
+    mount();
+  }
 </script>
 
 <style>

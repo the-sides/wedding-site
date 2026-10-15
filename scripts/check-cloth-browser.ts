@@ -83,7 +83,106 @@ try {
   console.log(
     "Forced GPU context loss: broken canvas hidden, message readable, cloth restored.",
   );
+  // Real reloads must release the previous context before starting another.
+  for (let load = 0; load < 10; load++) {
+    await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        "[data-cloth-canvas] canvas",
+      )!;
+      const gl = canvas.getContext("webgl2")!;
+      window.addEventListener(
+        "pagehide",
+        () => {
+          sessionStorage.setItem(
+            "cloth-test-released",
+            String(gl.isContextLost()),
+          );
+        },
+        { once: true },
+      );
+    });
+    await page.reload({ waitUntil: "load" });
+    await page.locator(".cloth-stage.is-ready").waitFor();
+    assert.equal(
+      await page.evaluate(() => sessionStorage.getItem("cloth-test-released")),
+      "true",
+      "Reload must release its previous GPU context",
+    );
+  }
+  console.log(
+    "10 successive reloads: every previous GPU context released, all new contexts rendered.",
+  );
+  const cached = await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>(
+      "[data-cloth-canvas] canvas",
+    )!;
+    const gl = canvas.getContext("webgl2")!;
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: true }),
+    );
+    return { released: gl.isContextLost(), removed: !canvas.isConnected };
+  });
+  assert.deepEqual(cached, { released: true, removed: true });
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new PageTransitionEvent("pageshow", { persisted: true }),
+    ),
+  );
+  await page.locator(".cloth-stage.is-ready").waitFor();
+  assert.equal(await page.locator("[data-cloth-canvas] canvas").count(), 1);
+  console.log(
+    "Back/forward cache: GPU released while cached, one fresh renderer on return.",
+  );
+  assert.equal(
+    await page.getByText("Graphics diagnostics", { exact: true }).count(),
+    0,
+  );
   await context.close();
+
+  // Exercise the real first-render exception path, rather than just a lost
+  // context after successful startup. It must release partial allocations.
+  const failedContext = await browser.newContext({ ...devices["Pixel 7"] });
+  await failedContext.addInitScript(() => {
+    const original = WebGL2RenderingContext.prototype.drawElements;
+    let first = true;
+    WebGL2RenderingContext.prototype.drawElements = function (...args) {
+      if (first) {
+        first = false;
+        (
+          window as Window & { failedClothContext?: WebGL2RenderingContext }
+        ).failedClothContext = this;
+        throw new Error("Test: first render failed");
+      }
+      return original.apply(this, args);
+    };
+  });
+  const failed = await failedContext.newPage();
+  const debugURL = new URL(url);
+  debugURL.searchParams.set("cloth-debug", "1");
+  await failed.goto(debugURL.href, { waitUntil: "load" });
+  await failed.locator(".cloth-stage.is-unavailable").waitFor();
+  assert.equal(
+    await failed.evaluate(() =>
+      (
+        window as Window & { failedClothContext?: WebGL2RenderingContext }
+      ).failedClothContext?.isContextLost(),
+    ),
+    true,
+  );
+  assert.equal(await failed.locator("[data-cloth-canvas] canvas").count(), 0);
+  await failed.getByText("Graphics diagnostics", { exact: true }).click();
+  assert.match(
+    await failed.locator("details pre").innerText(),
+    /initialization-failed/,
+  );
+  assert.match(
+    await failed.locator("details pre").innerText(),
+    /Test: first render failed/,
+  );
+  console.log(
+    "Failed first render: partial GPU context released; opt-in phone report records the exact startup exception.",
+  );
+  await failedContext.close();
 
   const slowContext = await browser.newContext({ ...devices["Pixel 7"] });
   const slow = await slowContext.newPage();
