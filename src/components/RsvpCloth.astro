@@ -1,0 +1,178 @@
+---
+import { RSVP_CLOSED_TITLE, RSVP_CLOSED_DETAILS } from "@/lib/rsvp-status";
+---
+
+<section class="cloth-notice" aria-labelledby="notice-heading">
+  <div class="cloth-stage" data-cloth-stage>
+    <div class="cloth-fallback">
+      <h1 id="notice-heading">{RSVP_CLOSED_TITLE}</h1>
+      <hr aria-hidden="true" />
+      <p>{RSVP_CLOSED_DETAILS}</p>
+    </div>
+    <div class="cloth-canvas" data-cloth-canvas aria-hidden="true"></div>
+  </div>
+  <noscript>
+    <style is:inline>
+      .cloth-stage .cloth-fallback {
+        clip-path: none !important;
+        width: auto !important;
+        height: auto !important;
+        padding: 32px !important;
+        overflow: visible !important;
+      }
+    </style>
+  </noscript>
+</section>
+
+<!--
+  The bundled script below cannot report its own failed or stalled download,
+  so this inline script reveals the announcement instead. Script load errors
+  do not bubble; only a capturing listener sees them. A stalled download
+  fires nothing, so the message also appears if the cloth has not started
+  after 20 s — long after a slow but working connection would have finished.
+  If the cloth arrives later, mounting it takes over from the flat message.
+-->
+<script is:inline>
+  {
+    const reveal = (status, detail) => {
+      const stage = document.querySelector("[data-cloth-stage]");
+      const current = stage?.dataset.clothStatus;
+      if (!stage || (current && current !== "script-stalled")) return;
+      stage.classList.add("is-unavailable");
+      stage.dataset.clothStatus = status;
+      stage.dataset.clothDetail = detail;
+    };
+    document.addEventListener(
+      "error",
+      (event) => {
+        const script = event.target;
+        if (script instanceof HTMLScriptElement && script.type === "module")
+          reveal("script-failed", script.src);
+      },
+      true,
+    );
+    setTimeout(
+      () => reveal("script-stalled", "not started after 20 s"),
+      20_000,
+    );
+  }
+</script>
+
+<script>
+  import { mountClothNotice } from "@/lib/cloth/notice";
+  import { enableClothDiagnostics } from "@/lib/cloth/diagnostics";
+
+  const stage = document.querySelector<HTMLElement>("[data-cloth-stage]");
+  if (stage) {
+    enableClothDiagnostics(stage);
+    let release: (() => void) | undefined;
+    function mount() {
+      if (!stage || release) return;
+      stage.classList.remove("is-ready", "is-unavailable");
+      stage.dataset.clothStatus = "starting";
+      delete stage.dataset.clothDetail;
+      try {
+        release = mountClothNotice(stage);
+      } catch (error) {
+        stage.classList.add("is-unavailable");
+        stage.dataset.clothStatus = "initialization-failed";
+        stage.dataset.clothDetail ||= String(error);
+        console.warn("Cloth animation unavailable:", error);
+      }
+    }
+    window.addEventListener("pagehide", () => {
+      release?.();
+      release = undefined;
+    });
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) mount();
+    });
+    mount();
+  }
+</script>
+
+<style>
+  .cloth-notice {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 30px 24px;
+  }
+  .cloth-stage {
+    position: relative;
+    height: clamp(440px, 68svh, 680px);
+    margin: 0 -20px;
+  }
+  .cloth-canvas {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .cloth-canvas :global(canvas) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: pan-y;
+  }
+  .cloth-fallback {
+    position: absolute;
+    inset: 7% 12% 9%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    text-align: center;
+    color: #48201e;
+    background: #fff8e9;
+    box-shadow: 0 20px 35px #4d352318;
+  }
+  .cloth-fallback h1 {
+    max-width: 510px;
+    font:
+      48px/1.08 "Baskerville",
+      Georgia,
+      serif;
+  }
+  .cloth-fallback hr {
+    width: 48px;
+    margin: 28px 0;
+    border: 0;
+    border-top: 1px solid #8f5147;
+  }
+  .cloth-fallback p {
+    max-width: 340px;
+    font:
+      19px/1.6 "Baskerville",
+      Georgia,
+      serif;
+  }
+  .cloth-stage.is-unavailable .cloth-canvas {
+    visibility: hidden;
+  }
+  .cloth-stage.is-ready .cloth-canvas {
+    opacity: 1;
+  }
+  .cloth-stage:not(.is-unavailable) .cloth-fallback {
+    clip-path: inset(50%);
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+  }
+  @media (max-width: 600px) {
+    .cloth-notice {
+      padding: 24px 20px;
+    }
+    .cloth-stage {
+      height: 430px;
+    }
+    .cloth-fallback {
+      inset: 8% 7%;
+      padding: 28px;
+    }
+    .cloth-fallback h1 {
+      font-size: 34px;
+    }
+  }
+</style>

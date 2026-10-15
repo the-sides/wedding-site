@@ -3,6 +3,41 @@
 Wedding site for Jacob and Vicki, built with [Astro](https://astro.build) and
 backed by Notion for updates.
 
+## Temporary notice mode
+
+**The switch is `NOTICE_ONLY` at the top of [`site.config.ts`](./site.config.ts).**
+
+- `true` serves only the cloth announcement and a tiny, already-blurred WebP
+  backdrop on every page. The wedding pages never render, so no carousel,
+  video, original photos, fonts, React, or Notion post queries load. RSVP
+  submissions are closed before any writes or notifications.
+- `false` restores the wedding site and reopens RSVP submissions.
+
+Rebuild and redeploy after changing the flag. Run `bun run check:notice` after
+`bun run build` to verify that every built page excludes the original site assets. Middleware rewrites page routes
+before rendering; the notice has its own HTML shell and does not import the
+normal layout or global styles. The cloth has priority and its HTML alternative
+stays hidden while it loads; it appears only if JavaScript/WebGL is unavailable.
+If the browser loses its WebGL context, the broken GPU surface is hidden and
+Three.js rebuilds it when the context returns. Leaving or reloading the page
+explicitly releases its GPU context and shadow targets, including after a failed
+first render and when the page
+enters the back/forward cache; returning creates a fresh renderer. Phones also
+use a smaller print texture without mipmaps or multisample antialiasing.
+
+For a failure specific to a phone, append `?cloth-debug=1` (or `&cloth-debug=1`
+if the URL already has parameters). The opt-in Graphics diagnostics panel can
+copy the context-creation error, context-loss events, GPU renderer, and recent
+reload history. The report stays in that tab's session storage and is never sent
+to a server; the normal notice has no diagnostics UI.
+
+The static backdrops use 860 px (phone) and 1600 px (desktop) images, around
+9 KB and 14 KB respectively, to keep the blur smooth on high-density screens.
+Run `bun run check:cloth <preview-or-local-URL>` with an installed Chromium
+(`CHROMIUM_PATH` overrides `/usr/bin/chromium`) to test normal and slow loading,
+no fallback flash, and forced GPU context loss/recovery. No browser download
+is required.
+
 ## Development
 
 ```sh
@@ -17,19 +52,19 @@ empty state on `/extras` instead of failing the build.
 
 ## Scripts
 
-| Command             | Description                                       |
-| ------------------- | ------------------------------------------------- |
-| `bun run dev`       | Dev server on port 3000                           |
-| `bun run build`     | Prerender to `dist/` and emit `.vercel/output/`   |
-| `bun run preview`   | Serve the production build                        |
-| `bun run check`     | Type-check `.astro` and `.ts` files               |
+| Command           | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| `bun run dev`     | Dev server on port 3000                         |
+| `bun run build`   | Prerender to `dist/` and emit `.vercel/output/` |
+| `bun run preview` | Serve the production build                      |
+| `bun run check`   | Type-check `.astro` and `.ts` files             |
 
 ## How it renders
 
-Every page is prerendered to static HTML at build time. Only `/rsvp` ships
-client JavaScript — the RSVP form is a React island (`client:load`); every
-other page is plain HTML. Notion is queried during the build in
-`src/pages/extras.astro`.
+Every page is prerendered to static HTML at build time. With notice mode off,
+`/rsvp` ships its React form (`client:load`) and the home page has an animated
+hero. Notion is queried during the build in `src/pages/extras.astro`. Notice
+mode intercepts those pages before rendering or data fetching.
 
 `src/pages/api/notion-webhook.ts` is the one exception: it sets
 `export const prerender = false`, so it deploys as a Vercel Function. Notion

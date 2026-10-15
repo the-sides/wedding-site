@@ -1,3 +1,12 @@
+## Temporary notice mode
+
+The root `site.config.ts` is the single switch. `NOTICE_ONLY = true` serves
+only the cloth notice and compressed backdrop; it also closes the RSVP API.
+Middleware must intercept pages before rendering so hidden media, React, fonts,
+and Notion queries never load. Keep the notice page independent of the normal
+layout/global stylesheet. Set the flag to `false` and redeploy to restore the
+site and reopen replies.
+
 ## Development
 
 When starting the dev server, use background mode:

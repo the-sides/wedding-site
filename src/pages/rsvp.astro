@@ -1,6 +1,7 @@
 ---
 import PageLayout from "@/layouts/PageLayout.astro";
 import RsvpForm from "@/components/rsvp/RsvpForm.tsx";
+import { RSVPS_OPEN } from "@/lib/rsvp-status";
 
 // The form is the one interactive island on the site. `client:load` because
 // it's the whole point of this page — there's nothing to gain by deferring it.
@@ -12,5 +13,5 @@ import RsvpForm from "@/components/rsvp/RsvpForm.tsx";
   description="RSVP to Jacob and Vicki's wedding."
   intro="Add a line for everyone in your party, then leave us an email so we can reach you."
 >
-  <RsvpForm client:load />
+  {RSVPS_OPEN && <RsvpForm client:load />}
 </PageLayout>
