@@ -1,7 +1,11 @@
 import * as THREE from "three";
 import { ClothSim } from "./physics";
 import { makeWeaveNormalMap, makeGrainRoughnessMap } from "./textures";
-import { RSVP_CLOSED_DETAILS, RSVP_CLOSED_HEADING_LINES } from "../rsvp-status";
+import {
+  RSVP_CLOSED_ASIDE,
+  RSVP_CLOSED_DETAILS,
+  RSVP_CLOSED_HEADING_LINES,
+} from "../rsvp-status";
 
 /** The announcement is printed into the surface, so every letter folds with it. */
 function printNotice(compact: boolean) {
@@ -31,6 +35,9 @@ function printNotice(compact: boolean) {
   const words = RSVP_CLOSED_DETAILS.split(" ");
   ctx.fillText(words.slice(0, 6).join(" "), 768, 840);
   ctx.fillText(words.slice(6).join(" "), 768, 895);
+  ctx.fillStyle = "#8f5147";
+  ctx.font = "italic 40px Georgia, serif";
+  ctx.fillText(RSVP_CLOSED_ASIDE, 768, 1000);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   if (compact) {

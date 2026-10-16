@@ -10,3 +10,4 @@ export const RSVP_CLOSED_HEADING_LINES = [
 export const RSVP_CLOSED_TITLE = RSVP_CLOSED_HEADING_LINES.join(" ");
 export const RSVP_CLOSED_DETAILS =
   "We’ll be in touch with more details shortly.";
+export const RSVP_CLOSED_ASIDE = "(no, we didn’t break up)";
