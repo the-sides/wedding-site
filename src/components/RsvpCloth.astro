@@ -1,5 +1,9 @@
 ---
-import { RSVP_CLOSED_TITLE, RSVP_CLOSED_DETAILS } from "@/lib/rsvp-status";
+import {
+  RSVP_CLOSED_TITLE,
+  RSVP_CLOSED_DETAILS,
+  RSVP_CLOSED_ASIDE,
+} from "@/lib/rsvp-status";
 ---
 
 <section class="cloth-notice" aria-labelledby="notice-heading">
@@ -8,6 +12,7 @@ import { RSVP_CLOSED_TITLE, RSVP_CLOSED_DETAILS } from "@/lib/rsvp-status";
       <h1 id="notice-heading">{RSVP_CLOSED_TITLE}</h1>
       <hr aria-hidden="true" />
       <p>{RSVP_CLOSED_DETAILS}</p>
+      <p class="aside">{RSVP_CLOSED_ASIDE}</p>
     </div>
     <div class="cloth-canvas" data-cloth-canvas aria-hidden="true"></div>
   </div>
@@ -146,6 +151,12 @@ import { RSVP_CLOSED_TITLE, RSVP_CLOSED_DETAILS } from "@/lib/rsvp-status";
       19px/1.6 "Baskerville",
       Georgia,
       serif;
+  }
+  .cloth-fallback .aside {
+    margin-top: 18px;
+    font-size: 16px;
+    font-style: italic;
+    color: #8f5147;
   }
   .cloth-stage.is-unavailable .cloth-canvas {
     visibility: hidden;
