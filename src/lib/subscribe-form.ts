@@ -10,9 +10,13 @@ export function enableSubscribeForm(form: HTMLFormElement) {
   const button = form.querySelector<HTMLButtonElement>("button")!;
   const status = form.querySelector<HTMLElement>("[data-subscribe-status]")!;
   const hint = status.textContent ?? "";
+  const label = button.textContent ?? "";
   function set(state: FieldState, message = hint) {
     form.dataset.state = state;
     status.textContent = message;
+    // The same words the cloth prints on its button, for the flat card.
+    button.textContent =
+      state === "sending" ? "Sending…" : state === "done" ? "✓ Noted" : label;
     form.dispatchEvent(new Event("subscribechange"));
   }
   form.addEventListener("submit", async (event) => {
