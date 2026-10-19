@@ -174,6 +174,23 @@ export class ClothSim {
     }
   }
 
+  /**
+   * Give the fabric around a texture point (u, v in 0..1, v from the top) a
+   * push toward the wall, as if it had been tapped from the front. Verlet
+   * stores velocity as `positions - prev`, so moving `prev` is the impulse.
+   */
+  nudge(u: number, v: number, radius: number, speed: number) {
+    for (let y = 0; y < this.rows; y++) {
+      for (let x = 0; x < this.cols; x++) {
+        const du = (x / this.segX - u) * this.width;
+        const dv = (y / this.segY - v) * this.height;
+        const t = 1 - Math.hypot(du, dv) / radius;
+        if (t <= 0) continue;
+        this.prev[(y * this.cols + x) * 3 + 2] += speed * t * t * (3 - 2 * t);
+      }
+    }
+  }
+
   reset() {
     this.initPositions();
     this.grab = null;
