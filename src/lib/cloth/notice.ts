@@ -2,49 +2,65 @@ import * as THREE from "three";
 import { ClothSim } from "./physics";
 import { makeWeaveNormalMap, makeGrainRoughnessMap } from "./textures";
 import {
+  ARTWORK_HEIGHT,
+  ARTWORK_WIDTH,
+  drawSubscribeField,
+  findSubscribeField,
+  placeSubscribeField,
+  type SubscribeField,
+} from "./field";
+import {
   RSVP_CLOSED_ASIDE,
   RSVP_CLOSED_DETAILS,
   RSVP_CLOSED_HEADING_LINES,
 } from "../rsvp-status";
 
 /** The announcement is printed into the surface, so every letter folds with it. */
-function printNotice(compact: boolean) {
+function printNotice(compact: boolean, field: SubscribeField | null) {
   const canvas = document.createElement("canvas");
   canvas.width = compact ? 1024 : 1536;
   canvas.height = compact ? 854 : 1280;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#fff8e9";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  // Fill in physical pixels before scaling the artwork's logical coordinates.
-  ctx.scale(canvas.width / 1536, canvas.height / 1280);
-
-  ctx.strokeStyle = "#8f5147";
-  ctx.lineWidth = 1.5;
-  ctx.fillStyle = "#48201e";
-  ctx.textAlign = "center";
-  ctx.font = "106px Georgia, serif";
-  RSVP_CLOSED_HEADING_LINES.forEach((line, index) => {
-    ctx.fillText(line, 768, 435 + index * 121);
-  });
-  ctx.beginPath();
-  ctx.moveTo(714, 748);
-  ctx.lineTo(822, 748);
-  ctx.stroke();
-  ctx.font = "50px Georgia, serif";
-  // Keep the same wording as the accessible HTML and API response.
-  const words = RSVP_CLOSED_DETAILS.split(" ");
-  ctx.fillText(words.slice(0, 6).join(" "), 768, 840);
-  ctx.fillText(words.slice(6).join(" "), 768, 895);
-  ctx.fillStyle = "#8f5147";
-  ctx.font = "italic 40px Georgia, serif";
-  ctx.fillText(RSVP_CLOSED_ASIDE, 768, 1000);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   if (compact) {
     texture.generateMipmaps = false;
     texture.minFilter = THREE.LinearFilter;
   }
-  return texture;
+
+  /** Repainted whole on each keystroke; 2D text is cheap next to the upload. */
+  function paint(caretOn = false) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#fff8e9";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Fill in physical pixels before scaling the artwork's logical coordinates.
+    ctx.scale(canvas.width / ARTWORK_WIDTH, canvas.height / ARTWORK_HEIGHT);
+
+    ctx.strokeStyle = "#8f5147";
+    ctx.lineWidth = 1.5;
+    ctx.fillStyle = "#48201e";
+    ctx.textAlign = "center";
+    ctx.font = "106px Georgia, serif";
+    RSVP_CLOSED_HEADING_LINES.forEach((line, index) => {
+      ctx.fillText(line, 768, 330 + index * 121);
+    });
+    ctx.beginPath();
+    ctx.moveTo(714, 643);
+    ctx.lineTo(822, 643);
+    ctx.stroke();
+    ctx.font = "50px Georgia, serif";
+    // Keep the same wording as the accessible HTML and API response.
+    const words = RSVP_CLOSED_DETAILS.split(" ");
+    ctx.fillText(words.slice(0, 6).join(" "), 768, 735);
+    ctx.fillText(words.slice(6).join(" "), 768, 790);
+    ctx.fillStyle = "#8f5147";
+    ctx.font = "italic 40px Georgia, serif";
+    ctx.fillText(RSVP_CLOSED_ASIDE, 768, 880);
+    if (field) drawSubscribeField(ctx, field, caretOn);
+    texture.needsUpdate = true;
+  }
+  paint();
+  return { texture, paint };
 }
 
 type Lifetime = {
@@ -131,7 +147,9 @@ function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
   const colors = new Float32Array(sim.count * 3).fill(1);
   const cavity = new Float32Array(sim.count);
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  const print = lifetime.own(printNotice(compact));
+  const field = findSubscribeField(stage);
+  const printer = printNotice(compact, field);
+  const print = lifetime.own(printer.texture);
   print.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const weave = lifetime.own(
     makeWeaveNormalMap(compact ? 128 : 256, compact ? 40 : 80),
@@ -196,8 +214,15 @@ function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
     pin.position.set(x, 2.3, 0.045);
     scene.add(pin);
   }
+  let stageWidth = 0;
+  let stageHeight = 0;
+  function placeField() {
+    if (field) placeSubscribeField(field, sim, camera, stageWidth, stageHeight);
+  }
   function resize() {
     const { width, height } = host.getBoundingClientRect();
+    stageWidth = width;
+    stageHeight = height;
     const aspect = width / height;
     const viewHeight = Math.max(5.65, 6.15 / aspect);
     camera.left = (-viewHeight * aspect) / 2;
@@ -207,6 +232,7 @@ function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
     camera.updateProjectionMatrix();
     renderer.setSize(width, height);
     if (!renderer.getContext().isContextLost()) renderer.render(scene, camera);
+    placeField();
   }
   const observer = new ResizeObserver(resize);
   observer.observe(host);
@@ -265,6 +291,7 @@ function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
     geometry.attributes.color.needsUpdate = true;
     geometry.computeBoundingSphere();
     renderer.render(scene, camera);
+    placeField();
     // Stop spending frames after the fabric settles; dragging wakes it up.
     if (!reducedMotion.matches && (age < 14 || dragging))
       frame = requestAnimationFrame(draw);
@@ -356,9 +383,73 @@ function createClothNotice(stage: HTMLElement, lifetime: Lifetime) {
   else {
     canvas.style.cursor = "grab";
   }
+  if (field) watchSubscribeField(field);
   stage.classList.add("is-ready");
   stage.dataset.clothStatus = "ready";
   wake();
+
+  /**
+   * Mirror the real input into the print. Edits arrive from many directions —
+   * typing, IME, autofill, arrow keys, taps that move the caret — so every
+   * one simply schedules a repaint, coalesced to one per frame.
+   */
+  function watchSubscribeField({ form, input }: SubscribeField) {
+    let pending = 0;
+    let caretOn = true;
+    let blink = 0;
+    function repaint() {
+      pending = 0;
+      printer.paint(caretOn);
+      // A settled cloth has stopped its loop; draw the new print once.
+      if (!running && !contextLost) renderer.render(scene, camera);
+    }
+    function schedule() {
+      caretOn = true;
+      if (!pending) pending = requestAnimationFrame(repaint);
+    }
+    function onFocus() {
+      clearInterval(blink);
+      blink = window.setInterval(() => {
+        caretOn = !caretOn;
+        if (!pending) pending = requestAnimationFrame(repaint);
+      }, 530);
+      schedule();
+    }
+    function onBlur() {
+      clearInterval(blink);
+      schedule();
+    }
+    function onSelection() {
+      if (document.activeElement === input) schedule();
+    }
+    function onState() {
+      schedule();
+      // A small thank-you: the fabric puffs back where the field was tapped.
+      if (form.dataset.state === "done" && !reducedMotion.matches) {
+        sim.nudge(0.5, 0.79, 2.4, 0.03);
+        age = Math.min(age, 9);
+        wake();
+      }
+    }
+    const edits = ["input", "keyup", "pointerup", "select"] as const;
+    for (const type of edits) input.addEventListener(type, schedule);
+    input.addEventListener("focus", onFocus);
+    input.addEventListener("blur", onBlur);
+    form.addEventListener("subscribechange", onState);
+    document.addEventListener("selectionchange", onSelection);
+    if (document.activeElement === input) onFocus();
+    lifetime.onDispose(() => {
+      cancelAnimationFrame(pending);
+      clearInterval(blink);
+      for (const type of edits) input.removeEventListener(type, schedule);
+      input.removeEventListener("focus", onFocus);
+      input.removeEventListener("blur", onBlur);
+      form.removeEventListener("subscribechange", onState);
+      document.removeEventListener("selectionchange", onSelection);
+      form.removeAttribute("style");
+      form.removeAttribute("data-folded");
+    });
+  }
 
   lifetime.onDispose(() => {
     if (disposed) return;

@@ -115,7 +115,7 @@ try {
         stage.querySelector("[data-cloth-canvas]")!,
       ).visibility,
       messageWidth: stage
-        .querySelector(".cloth-fallback")!
+        .querySelector(".cloth-copy")!
         .getBoundingClientRect().width,
     }));
   assert.equal(lostState.ready, false);
@@ -251,7 +251,7 @@ try {
   await slow.locator("[data-cloth-stage]").waitFor();
   assert.equal(
     await slow
-      .locator(".cloth-fallback")
+      .locator(".cloth-copy")
       .evaluate((message) => message.getBoundingClientRect().width),
     1,
     "No fallback flash while the script downloads",
@@ -332,7 +332,7 @@ try {
   });
   assert.ok(
     (await offline
-      .locator(".cloth-fallback")
+      .locator(".cloth-copy")
       .evaluate((message) => message.getBoundingClientRect().width)) > 200,
     "Show the announcement when the cloth script cannot download",
   );
@@ -354,7 +354,7 @@ try {
   await stalled.locator("[data-cloth-stage]").waitFor();
   assert.equal(
     await stalled
-      .locator(".cloth-fallback")
+      .locator(".cloth-copy")
       .evaluate((message) => message.getBoundingClientRect().width),
     1,
     "Give a slow download time before revealing the flat message",
@@ -364,7 +364,7 @@ try {
   });
   assert.ok(
     (await stalled
-      .locator(".cloth-fallback")
+      .locator(".cloth-copy")
       .evaluate((message) => message.getBoundingClientRect().width)) > 200,
     "Show the announcement when the cloth script download stalls",
   );
@@ -374,7 +374,7 @@ try {
   await stalled.locator(".cloth-stage.is-ready").waitFor({ timeout: 30_000 });
   assert.equal(
     await stalled
-      .locator(".cloth-fallback")
+      .locator(".cloth-copy")
       .evaluate((message) => message.getBoundingClientRect().width),
     1,
     "A late cloth replaces the flat message",
