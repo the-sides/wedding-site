@@ -1,0 +1,461 @@
+---
+/*
+ * The cookie banner, which is not really a cookie banner. It sets nothing,
+ * asks nothing, and exists to pose the only question this site actually cares
+ * about: whose guest are you?
+ *
+ * Rendered once from `Layout.astro`, so every page carries it.
+ *
+ * Two pieces live here:
+ *
+ *   1. The band itself, pinned to the bottom in the page palette.
+ *   2. A full-screen overlay that only Jacob's people ever see.
+ *
+ * Both ship in the prerendered HTML with `hidden` on them and are revealed by
+ * the script at the bottom. That ordering is deliberate: the answer lives in
+ * `localStorage`, which the server cannot see, so a banner rendered visible
+ * would flash on every page load for the people who already answered. Starting
+ * hidden means the only motion anyone sees is the slide-up, and only when the
+ * band genuinely has something to ask.
+ */
+
+// One key, three values: "vicki", "jacob", or "dismissed" for the (x). All
+// three suppress the band on the next visit — the distinction is kept only
+// because it costs nothing and is funnier to read out of devtools than a bare
+// boolean would be. `SiteFooter.astro` clears this same key.
+const STORAGE_KEY = "wedding:allegiance";
+---
+
+<aside
+  class="cookie"
+  data-cookie-banner
+  data-storage-key={STORAGE_KEY}
+  hidden
+  aria-label="Cookie preferences"
+>
+  <div class="cookie__inner">
+    <p class="cookie__copy">
+      Idgaf about your cookie preference, you&rsquo;re getting them no matter
+      what. More importantly, who are you here for?
+    </p>
+
+    <div class="cookie__actions">
+      <button type="button" class="cookie__button" data-choice="vicki">
+        Vicki
+      </button>
+      <button type="button" class="cookie__button" data-choice="jacob">
+        Jacob
+      </button>
+    </div>
+
+    <button
+      type="button"
+      class="cookie__close"
+      data-choice="dismissed"
+      aria-label="Dismiss"
+    >
+      &times;
+    </button>
+  </div>
+</aside>
+
+<!-- Jacob's reward. Inert and unreachable until a choice summons it. -->
+<div class="cooking" data-cooking hidden aria-hidden="true">
+  <div class="cooking__stage">
+    <!--
+      The same file twice. The first copy is blown up and blurred into a
+      backdrop so the letterboxing either side of a tall portrait panel is
+      filled with the panel's own greys rather than a flat colour; the second
+      is the panel itself, sharp and fit to the screen. One request either
+      way — the browser serves the second from cache.
+    -->
+    <img
+      class="cooking__backdrop"
+      src="/allow-me-to-begin-cooking.png"
+      alt=""
+    />
+    <img
+      class="cooking__panel"
+      src="/allow-me-to-begin-cooking.png"
+      alt=""
+      decoding="async"
+    />
+  </div>
+</div>
+
+<style>
+  .cookie {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 60;
+    border-top: 1px solid rgb(34 24 18 / 0.15);
+    background: #fff8ee;
+    /* The band floats over whatever page it lands on, so it needs its own
+       lift; the four nav cards use the same shadow recipe upward. */
+    box-shadow: 0 -18px 60px rgb(54 38 22 / 0.12);
+    /* Slid off-screen until the script clears `hidden` and adds `--in`. */
+    transform: translate3d(0, 100%, 0);
+    transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .cookie--in {
+    transform: translate3d(0, 0, 0);
+  }
+
+  .cookie__inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    /* Room on the right for the absolutely-positioned close button, and on
+       phones a floor under the home indicator. */
+    padding: 1.25rem 3.25rem 1.25rem 1.25rem;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    margin: 0 auto;
+    max-width: 72rem;
+  }
+
+  @media (min-width: 40rem) {
+    .cookie__inner {
+      flex-direction: row;
+      align-items: center;
+      gap: 1.75rem;
+      padding: 1.25rem 3.5rem 1.25rem 2rem;
+    }
+  }
+
+  .cookie__copy {
+    margin: 0;
+    flex: 1;
+    font-family: "Avenir Next", "Gill Sans", sans-serif;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: #221812;
+  }
+
+  .cookie__actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .cookie__button {
+    /* Matched to the nav cards: hairline border, warm fill, gold on hover. */
+    border: 1px solid rgb(34 24 18 / 0.15);
+    background: #f4eadc;
+    padding: 0.7rem 1.6rem;
+    font-family: "Avenir Next", "Gill Sans", sans-serif;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: #221812;
+    cursor: pointer;
+    transition:
+      border-color 200ms,
+      background-color 200ms,
+      color 200ms;
+  }
+
+  .cookie__button:hover {
+    border-color: rgb(155 110 56 / 0.6);
+    background: #fff8ee;
+    color: #9b6e38;
+  }
+
+  .cookie__close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    /* A 44px box around a small glyph — the tap target has to survive a
+       thumb even though the × itself is quiet. */
+    width: 2.75rem;
+    height: 2.75rem;
+    display: grid;
+    /*
+     * `minmax(0, 1fr)` rather than a bare `1fr` or an implicit auto track,
+     * and this is load-bearing. An auto-sized track takes its size from its
+     * content, so the row grew to the image's full 1834px and the panel's
+     * `max-height: 100%` then resolved against *that* — 100% of itself, a
+     * no-op. The panel overflowed to 2.3x the viewport width and the caption,
+     * which is the entire joke, sat off-screen. Pinning the track to the
+     * container's own height makes the percentage resolve against the screen.
+     */
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    place-items: center;
+    /* A sliver of margin so the blur reads as a backdrop rather than as two
+       hairlines either side of the panel. */
+    padding: 2.5vmin;
+    border: 0;
+    background: none;
+    font-size: 1.35rem;
+    line-height: 1;
+    color: #6f5a45;
+    cursor: pointer;
+    transition: color 200ms;
+  }
+
+  .cookie__close:hover {
+    color: #221812;
+  }
+
+  /* --- The overlay ------------------------------------------------------ */
+
+  .cooking {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    /* Only ever seen if the image itself fails to load. */
+    background: #000;
+    /* It plays, it leaves, and it never eats a click on the way past. */
+    pointer-events: none;
+    /* The stage slides past the edges mid-quake; without this the page picks
+       up a scrollbar for a second. */
+    overflow: hidden;
+  }
+
+  .cooking__stage {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    /*
+     * `minmax(0, 1fr)` rather than a bare `1fr` or an implicit auto track,
+     * and this is load-bearing. An auto-sized track takes its size from its
+     * content, so the row grew to the image's full 1834px and the panel's
+     * `max-height: 100%` then resolved against *that* — 100% of itself, a
+     * no-op. The panel overflowed to 2.3x the viewport width and the caption,
+     * which is the entire joke, sat off-screen. Pinning the track to the
+     * container's own height makes the percentage resolve against the screen.
+     */
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    place-items: center;
+    /* A sliver of margin so the blur reads as a backdrop rather than as two
+       hairlines either side of the panel. */
+    padding: 2.5vmin;
+    /*
+     * The quake is applied here rather than to the panel, so the backdrop
+     * goes with it. Shaking only the sharp copy would read as a picture
+     * rattling in a frame; shaking both reads as the screen itself going.
+     */
+  }
+
+  .cooking__backdrop {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /*
+     * Blur samples from outside the element, so an unscaled backdrop fades
+     * out at its own edges and leaves a soft grey border. Overscaling past
+     * both the blur radius and the quake's 6% throw pushes those edges well
+     * off-screen. Dimmed, because the panel is mostly white and needs
+     * something darker behind it to read as the thing in front.
+     */
+    transform: scale(1.35);
+    filter: blur(38px) brightness(0.42) saturate(0.8);
+  }
+
+  .cooking__panel {
+    position: relative;
+    /*
+     * Contained on both axes, not fitted to one. Fitting height alone pushed
+     * the panel to ~2.3x the viewport width on a laptop and cropped the
+     * lettering clean off the sides — which is the entire joke. Letting both
+     * maxima bind means whichever axis runs out first is the one that
+     * governs, and the other letterboxes into the blur.
+     *
+     * `max-*` with `auto` dimensions rather than `height: 100%` + `object-fit`:
+     * this way the element box itself is the panel's shape, so the shadow
+     * below hugs the artwork instead of a stretched box with the image
+     * floating inside it.
+     */
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    /* Reads as lying on top of the blur rather than cut into it. */
+    box-shadow: 0 0 90px rgb(0 0 0 / 0.65);
+  }
+
+  /*
+   * Under three seconds start to finish: hard cut in, hold still to 1.5s,
+   * 1.1s of earthquake, hard cut out. No fade at either end. The cut in is
+   * what makes it an ambush rather than a modal, and the cut out is the
+   * punchline — it does not resolve, it is just over, and the page is
+   * underneath exactly as it was.
+   *
+   * The still hold stays at the full 1.5s even though everything after it is
+   * fast. The judder only reads as an escalation if there is a beat of
+   * nothing first.
+   */
+  .cooking--run .cooking__stage {
+    animation: cooking-quake 1100ms linear 1500ms both;
+  }
+
+  /*
+   * Pure horizontal. No rotation, no vertical component, no easing — those
+   * are what make a shake read as a wave, because a rotating, arcing, eased
+   * motion is a swing and the eye follows it. An earthquake is the opposite:
+   * the frame is somewhere else every frame and you cannot track it. Sixteen
+   * reversals in 1.1s is about 15Hz, past the point where individual
+   * positions resolve.
+   *
+   * Amplitude is in percent rather than pixels, and percentage translates
+   * resolve against the element's own width — which is the viewport. So a
+   * phone and a desktop get the same violence relative to the screen instead
+   * of 48px reading as a shove on one and a twitch on the other.
+   */
+  @keyframes cooking-quake {
+    0% {
+      transform: translate3d(0, 0, 0);
+    }
+    6% {
+      transform: translate3d(-1.4%, 0, 0);
+    }
+    12% {
+      transform: translate3d(1.8%, 0, 0);
+    }
+    19% {
+      transform: translate3d(-2.3%, 0, 0);
+    }
+    25% {
+      transform: translate3d(2.8%, 0, 0);
+    }
+    31% {
+      transform: translate3d(-3.2%, 0, 0);
+    }
+    37% {
+      transform: translate3d(3.7%, 0, 0);
+    }
+    44% {
+      transform: translate3d(-4.1%, 0, 0);
+    }
+    50% {
+      transform: translate3d(4.5%, 0, 0);
+    }
+    56% {
+      transform: translate3d(-4.9%, 0, 0);
+    }
+    62% {
+      transform: translate3d(5.2%, 0, 0);
+    }
+    69% {
+      transform: translate3d(-5.5%, 0, 0);
+    }
+    75% {
+      transform: translate3d(5.8%, 0, 0);
+    }
+    81% {
+      transform: translate3d(-6%, 0, 0);
+    }
+    87% {
+      transform: translate3d(6%, 0, 0);
+    }
+    94% {
+      transform: translate3d(-6%, 0, 0);
+    }
+    100% {
+      transform: translate3d(6%, 0, 0);
+    }
+  }
+
+  @keyframes cooking-hold {
+    from,
+    to {
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cookie {
+      transition: none;
+    }
+
+    .cooking--run .cooking__stage {
+      /* No quake, but the run still has to end — `cooking-hold` animates
+         nothing and exists only so `animationend` fires on the same beat and
+         the teardown below stays a single code path. */
+      animation: cooking-hold 1100ms linear 1500ms both;
+    }
+  }
+</style>
+
+<script>
+  const banner = document.querySelector<HTMLElement>("[data-cookie-banner]");
+  const cooking = document.querySelector<HTMLElement>("[data-cooking]");
+  const key = banner?.dataset.storageKey;
+  if (banner && cooking && key) {
+    /*
+     * Safari in private mode throws on `localStorage` access rather than
+     * returning null. A banner that asks a joke question is not worth a
+     * TypeError that takes the rest of the page's scripts down with it, so
+     * every touch of storage is wrapped and falls back to "no answer yet".
+     */
+    const read = () => {
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    };
+
+    const write = (value: string) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        /* Nothing to do — they will just be asked again next visit. */
+      }
+    };
+
+    const show = () => {
+      banner.hidden = false;
+      // Two frames, not one. Clearing `hidden` and adding `--in` in the same
+      // frame collapses into a single style recalc and the browser has no
+      // start value to interpolate from, so the band would appear in place
+      // rather than slide up.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => banner.classList.add("cookie--in")),
+      );
+    };
+
+    const cook = () => {
+      cooking.hidden = false;
+      cooking.classList.add("cooking--run");
+    };
+
+    /*
+     * There is no fade, so the end of the quake *is* the end of the run — the
+     * overlay is torn out on the same frame the last judder lands. Driven off
+     * `animationend` rather than a `setTimeout` so the two can never drift
+     * apart when the CSS timings are retuned, which they have been twice.
+     */
+    cooking.addEventListener("animationend", (event) => {
+      if (!event.animationName.startsWith("cooking-")) return;
+      cooking.classList.remove("cooking--run");
+      cooking.hidden = true;
+    });
+
+    banner.addEventListener("click", (event) => {
+      const choice = (event.target as HTMLElement).closest<HTMLElement>(
+        "[data-choice]",
+      )?.dataset.choice;
+      if (!choice) return;
+
+      write(choice);
+      // Publish it for the CSS that branches on allegiance — the hero's layer
+      // rig reads this. Set here as well as in the head script so the choice
+      // takes effect on this page view, not only on the next one.
+      document.documentElement.dataset.allegiance = choice;
+      banner.classList.remove("cookie--in");
+      // Let the band finish sliding away before it stops being focusable —
+      // matches the 420ms transition above.
+      setTimeout(() => (banner.hidden = true), 420);
+
+      // Vicki's guests and the (x) get exactly what they asked for: nothing.
+      if (choice === "jacob") cook();
+    });
+
+    if (!read()) show();
+  }
+</script>

@@ -1,9 +1,43 @@
 ---
 // The closing band, shared by every page.
+//
+// Must stay in step with `CookieBanner.astro`, which owns this key.
+const STORAGE_KEY = "wedding:allegiance";
 ---
 
 <footer
-  class="grid min-h-[8svh] place-items-center border-t border-[#221812]/15 bg-[#f4eadc] px-5 py-4 font-['Avenir_Next','Gill_Sans',sans-serif] text-xs uppercase tracking-[0.24em] text-[#6f5a45]"
+  class="flex min-h-[8svh] flex-col items-center justify-center gap-2 border-t border-[#221812]/15 bg-[#f4eadc] px-5 py-4 font-['Avenir_Next','Gill_Sans',sans-serif] text-xs uppercase tracking-[0.24em] text-[#6f5a45]"
 >
-  Jacob &amp; Vicki
+  <span>Jacob &amp; Vicki</span>
+
+  <!-- Preflight resets `text-transform` on <button>, so the footer's
+       `uppercase` does not reach it and has to be restated. -->
+  <button
+    type="button"
+    class="cursor-pointer text-[0.625rem] uppercase tracking-[0.2em] text-[#6f5a45]/70 underline underline-offset-4 transition hover:text-[#9b6e38]"
+    data-clear-preferences
+    data-storage-key={STORAGE_KEY}
+  >
+    Clear Preferences
+  </button>
 </footer>
+
+<script>
+  document
+    .querySelectorAll<HTMLElement>("[data-clear-preferences]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        const key = button.dataset.storageKey;
+        try {
+          if (key) localStorage.removeItem(key);
+        } catch {
+          /* Private mode never stored anything to begin with. */
+        }
+        // A reload rather than re-showing the band in place. The banner
+        // decides whether to appear exactly once, on load, and reloading
+        // reuses that one decision instead of teaching two components to
+        // talk to each other for a button almost nobody will press.
+        location.reload();
+      });
+    });
+</script>
